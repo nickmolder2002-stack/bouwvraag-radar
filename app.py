@@ -155,3 +155,4 @@ status = st.sidebar.selectbox(
 
 laatst_contact = st.sidebar.date_input("Laatste contact")
 volgende_actie = st.sidebar.text_input("Volgende actie")
+st.dataframe(df, use_container_width=True)
