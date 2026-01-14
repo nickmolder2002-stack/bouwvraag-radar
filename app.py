@@ -1,6 +1,3 @@
-if "bedrijven" not in st.session_state:
-    st.session_state.bedrijven = []
-
 import streamlit as st
 import pandas as pd
 import os
