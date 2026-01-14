@@ -1,28 +1,32 @@
 import streamlit as st
 import pandas as pd
-from datetime import date
 import os
 
-st.set_page_config(page_title="Bouwvraag Radar", layout="wide")
+st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 
-DATA_FILE = "bedrijven.csv"
+DATA_FILE = "data.csv"
 
-# =========================
-# HULPFUNCTIES
-# =========================
-
+# -----------------------
+# FUNCTIES
+# -----------------------
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = 0
-    score += projecten * 10
-    score += vacatures * 15
+    score += projecten * 5
 
-    if fase == "Start":
+    if vacatures == "Ja":
         score += 20
-    elif fase == "Uitvoering":
+
+    if werksoort in ["Beton / Ruwbouw", "Prefab"]:
+        score += 15
+    else:
         score += 10
 
-    if werksoort in ["Ruwbouw", "Prefab"]:
+    if fase == "Piek":
+        score += 15
+    elif fase == "Start":
         score += 10
+    else:
+        score += 5
 
     return min(score, 100)
 
@@ -36,51 +40,48 @@ def score_kleur(score):
         return "🟢 Laag"
 
 
-def vacature_signaal(vacatures):
-    if vacatures >= 3:
-        return "✅ Actief"
-    elif vacatures > 0:
-        return "🟠 Beperkt"
-    else:
-        return "❌ Geen"
-
-
-# =========================
+# -----------------------
 # DATA LADEN
-# =========================
-
+# -----------------------
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
     df = pd.DataFrame(columns=[
-        "Bedrijf", "Type", "Werksoort", "Projecten", "Vacatures",
-        "Fase", "Score", "Prioriteit", "Vacature signaal",
+        "Bedrijf", "Type", "Werksoort", "Projecten",
+        "Vacatures", "Fase", "Score", "Prioriteit",
         "Status", "Laatste contact", "Volgende actie", "Notitie"
     ])
 
-# =========================
-# SIDEBAR - INVOER
-# =========================
+# -----------------------
+# TITEL
+# -----------------------
+st.title("🧠 BouwVraag Radar")
 
-st.sidebar.header("➕ Bedrijf toevoegen")
+# -----------------------
+# SIDEBAR – INVOER
+# -----------------------
+st.sidebar.header("Nieuw bedrijf")
 
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Installateur", "Prefab"])
-werksoort = st.sidebar.selectbox("Werksoort", ["Ruwbouw", "Prefab", "Installatie", "Overig"])
-projecten = st.sidebar.number_input("Aantal projecten", min_value=0, step=1)
-vacatures = st.sidebar.number_input("Aantal vacatures", min_value=0, step=1)
-fase = st.sidebar.selectbox("Projectfase", ["Start", "Uitvoering", "Afronding"])
+type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"])
+werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"])
+projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
+vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee", "Ja"])
+fase = st.sidebar.selectbox("Projectfase", ["Start", "Piek", "Afronding"])
 
 status = st.sidebar.selectbox(
     "Status",
     ["Vandaag bellen", "Deze week", "Later", "Klaar"]
 )
 
-laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
+laatst_contact = st.sidebar.date_input("Laatste contact")
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
-if st.sidebar.button("💾 Opslaan"):
+# -----------------------
+# OPSLAAN
+# -----------------------
+if st.sidebar.button("Opslaan"):
     score = bereken_score(projecten, vacatures, werksoort, fase)
 
     nieuw = {
@@ -92,7 +93,6 @@ if st.sidebar.button("💾 Opslaan"):
         "Fase": fase,
         "Score": score,
         "Prioriteit": score_kleur(score),
-        "Vacature signaal": vacature_signaal(vacatures),
         "Status": status,
         "Laatste contact": laatst_contact,
         "Volgende actie": volgende_actie,
@@ -103,17 +103,13 @@ if st.sidebar.button("💾 Opslaan"):
     df.to_csv(DATA_FILE, index=False)
 
     st.success(f"Opgeslagen ✅ Score: {score}")
-    st.rerun()
 
-# =========================
-# OVERZICHT
-# =========================
+# -----------------------
+# OVERZICHT & PRIORITEIT
+# -----------------------
+st.subheader("📞 Overzicht & prioriteit")
 
-st.title("📊 Bouwvraag Radar")
-
-if df.empty:
-    st.info("Nog geen bedrijven ingevoerd")
-else:
+if not df.empty:
     volgorde = {
         "Vandaag bellen": 1,
         "Deze week": 2,
@@ -123,13 +119,14 @@ else:
 
     df["Status_volgorde"] = df["Status"].map(volgorde)
 
-    df_overzicht = df.sort_values(
+    df = df.sort_values(
         by=["Status_volgorde", "Score"],
         ascending=[True, False]
     )
 
-    st.subheader("📞 Overzicht & prioriteit")
     st.dataframe(
-        df_overzicht.drop(columns=["Status_volgorde"]),
+        df.drop(columns=["Status_volgorde"]),
         use_container_width=True
     )
+else:
+    st.info("Nog geen bedrijven ingevoerd")
