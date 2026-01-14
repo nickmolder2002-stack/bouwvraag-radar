@@ -6,7 +6,6 @@ st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 
 DATA_FILE = "data.csv"
 
-}
 
 # Score berekening
 def bereken_score(projecten, vacatures, werksoort, fase):
