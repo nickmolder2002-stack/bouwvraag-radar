@@ -58,6 +58,13 @@ notitie = st.sidebar.text_area("Notitie")
 
 if st.sidebar.button("Opslaan"):
     score = bereken_score(projecten, vacatures, werksoort, fase)
+def score_kleur(score):
+    if score >= 70:
+        return "🔴 Hoog"
+    elif score >= 40:
+        return "🟠 Middel"
+    else:
+        return "🟢 Laag"
 
     nieuw = {
     "Bedrijf": bedrijf,
