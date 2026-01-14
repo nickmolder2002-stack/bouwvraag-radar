@@ -108,7 +108,4 @@ if st.session_state.resultaten:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data opgeslagen.")
-if st.button("🗑️ Alles leegmaken"):
-    st.session_state.bedrijven = []
-    st.experimental_rerun()
-st.dataframe(bedrijven_df)
+
