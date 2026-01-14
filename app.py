@@ -1,60 +1,48 @@
 import streamlit as st
+import pandas as pd
+import os
 
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 
+DATA_FILE = "data.csv"
+
+# Data laden of nieuw maken
+if os.path.exists(DATA_FILE):
+    df = pd.read_csv(DATA_FILE)
+else:
+    df = pd.DataFrame(columns=["Bedrijf", "Type", "Rol", "Score", "Notitie"])
+
 st.title("🧠 BouwVraag Radar")
-st.write("Dagelijkse sales‑prioriteiten voor bouw & prefab")
 
-st.sidebar.header("➕ Nieuw bedrijf")
+# Sidebar invoer
+st.sidebar.header("Nieuw bedrijf")
 
-naam = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox(
-    "Type bedrijf",
-    ["Aannemer", "Prefab / Productie"]
-)
-
-rollen = st.sidebar.multiselect(
-    "Rollen",
-    ["Timmerman", "Beton / Ruwbouw", "Prefab medewerker"]
-)
-
-score = st.sidebar.slider("Vraagscore", 0, 100, 50)
+bedrijf = st.sidebar.text_input("Bedrijfsnaam")
+type_bedrijf = st.sidebar.selectbox("Type", ["Aannemer", "Prefab", "Onderhoud"])
+rol = st.sidebar.text_input("Gezochte rol")
+score = st.sidebar.slider("Kans op behoefte (%)", 0, 100, 50)
 notitie = st.sidebar.text_area("Notitie")
 
-if "bedrijven" not in st.session_state:
-    st.session_state.bedrijven = []
-
 if st.sidebar.button("Opslaan"):
-    st.session_state.bedrijven.append({
-        "naam": naam,
-        "type": type_bedrijf,
-        "rollen": ", ".join(rollen),
-        "score": score,
-        "notitie": notitie
-    })
-    st.sidebar.success("Bedrijf toegevoegd")
+    nieuw = {
+        "Bedrijf": bedrijf,
+        "Type": type_bedrijf,
+        "Rol": rol,
+        "Score": score,
+        "Notitie": notitie
+    }
+    df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
+    df.to_csv(DATA_FILE, index=False)
+    st.success("Opgeslagen ✅")
 
-st.subheader("🔥 Vandaag bellen")
+# Vandaag bellen
+st.subheader("📞 Vandaag bellen")
+if not df.empty:
+    vandaag = df.sort_values("Score", ascending=False).head(5)
+    st.dataframe(vandaag, use_container_width=True)
+else:
+    st.info("Nog geen bedrijven ingevoerd")
 
-hoog = [b for b in st.session_state.bedrijven if b["score"] >= 70]
-
-for b in sorted(hoog, key=lambda x: x["score"], reverse=True)[:5]:
-    st.markdown(f"""
-**{b['naam']}** — Score {b['score']}  
-Rollen: {b['rollen']}  
-Type: {b['type']}  
-Notitie: {b['notitie']}
----
-""")
-
-st.subheader("📊 Alle bedrijven")
-
-for b in st.session_state.bedrijven:
-    st.markdown(f"""
-**{b['naam']}**  
-Type: {b['type']}  
-Rollen: {b['rollen']}  
-Score: {b['score']}  
-Notitie: {b['notitie']}
----
-""")
+# Alle bedrijven
+st.subheader("📋 Alle bedrijven")
+st.dataframe(df, use_container_width=True)
