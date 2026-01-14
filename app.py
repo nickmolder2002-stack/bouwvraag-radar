@@ -108,3 +108,15 @@ if st.session_state.resultaten:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data opgeslagen.")
+for i, row in bedrijven_df.iterrows():
+    col1, col2, col3, col4, col5, col6 = st.columns(6)
+
+    col1.write(row["Bedrijf"])
+    col2.write(row["Type"])
+    col3.write(row["Rol"])
+    col4.write(row["Score"])
+    col5.write(row["Notitie"])
+
+    if col6.button("🗑️ Verwijder", key=f"del_{i}"):
+        st.session_state["bedrijven"].pop(i)
+        st.rerun()
