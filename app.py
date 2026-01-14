@@ -111,3 +111,4 @@ else:
 if st.button("🗑️ Alles leegmaken"):
     st.session_state.bedrijven = []
     st.experimental_rerun()
+st.dataframe(bedrijven_df)
