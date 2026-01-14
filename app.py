@@ -116,28 +116,4 @@ if st.button("Optie A"):
         "Score": 50,
         "Notitie": None
     })
-import pandas as pd
-import streamlit as st
-
-# Lijst om data te bewaren in de sessie
-if "resultaten" not in st.session_state:
-    st.session_state.resultaten = []
-
-# VOORBEELD: na berekening score
-if st.button("Opslaan"):
-    st.session_state.resultaten.append({
-        "Bedrijf": bedrijf,
-        "Score": score,
-        "Keuze": keuze,
-        "Datum": pd.Timestamp.now().strftime("%d-%m-%Y")
-    })
-
-st.divider()
-st.subheader("📊 Overzicht")
-
-if st.session_state.resultaten:
-    df = pd.DataFrame(st.session_state.resultaten)
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("Nog geen data opgeslagen.")
-
+    
