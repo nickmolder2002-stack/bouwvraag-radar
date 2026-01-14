@@ -59,15 +59,19 @@ if st.sidebar.button("Opslaan"):
     score = bereken_score(projecten, vacatures, werksoort, fase)
 
     nieuw = {
-        "Bedrijf": bedrijf,
-        "Type": type_bedrijf,
-        "Werksoort": werksoort,
-        "Projecten": projecten,
-        "Vacatures": vacatures,
-        "Fase": fase,
-        "Score": score,
-        "Notitie": notitie
-    }
+    "Bedrijf": bedrijf,
+    "Type": type_bedrijf,
+    "Werksoort": werksoort,
+    "Projecten": projecten,
+    "Vacatures": vacatures,
+    "Fase": fase,
+    "Score": score,
+    "Status": status,
+    "Laatste contact": laatst_contact,
+    "Volgende actie": volgende_actie,
+    "Notitie": notitie
+}
+
 
     df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
@@ -82,10 +86,29 @@ else:
     st.info("Nog geen bedrijven ingevoerd")
 
 # Alles
-st.subheader("📋 Alle bedrijven")
-st.dataframe(df, use_container_width=True)
-import pandas as pd
-import streamlit as st
+st.subheader("📞 Overzicht & prioriteit")
+
+if not df.empty:
+    volgorde = {
+        "Vandaag bellen": 1,
+        "Deze week": 2,
+        "Later": 3,
+        "Klaar": 4
+    }
+
+    df["Status_volgorde"] = df["Status"].map(volgorde)
+    df = df.sort_values(
+        by=["Status_volgorde", "Score"],
+        ascending=[True, False]
+    )
+
+    st.dataframe(
+        df.drop(columns=["Status_volgorde"]),
+        use_container_width=True
+    )
+else:
+    st.info("Nog geen bedrijven ingevoerd")
+
 
 # Lijst om data te bewaren in de sessie
 if "resultaten" not in st.session_state:
