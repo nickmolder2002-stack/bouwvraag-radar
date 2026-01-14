@@ -92,6 +92,14 @@ laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
+status = st.sidebar.selectbox(
+    "Status",
+    ["Vandaag bellen", "Deze week", "Later", "Klaar"]
+)
+laatst_contact = st.sidebar.date_input("Laatste contact")
+volgende_actie = st.sidebar.text_input("Volgende actie")
+
+
 if st.sidebar.button("Opslaan"):
     if bedrijf.strip() == "":
         st.sidebar.error("Bedrijfsnaam is verplicht")
