@@ -117,3 +117,10 @@ if st.button("Optie A"):
         "Notitie": None
     })
     
+status = st.sidebar.selectbox(
+    "Status",
+    ["Vandaag bellen", "Deze week", "Later", "Klaar"]
+)
+
+laatst_contact = st.sidebar.date_input("Laatste contact")
+volgende_actie = st.sidebar.text_input("Volgende actie")
