@@ -108,4 +108,12 @@ if st.session_state.resultaten:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data opgeslagen.")
+if st.button("Optie A"):
+    st.session_state.bedrijven.append({
+        "Bedrijf": "preco",
+        "Type": "Prefab",
+        "Rol": None,
+        "Score": 50,
+        "Notitie": None
+    })
 
