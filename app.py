@@ -1,63 +1,32 @@
 import streamlit as st
 import pandas as pd
+from datetime import date
 import os
 
-st.set_page_config(page_title="BouwVraag Radar", layout="wide")
+st.set_page_config(page_title="Bouwvraag Radar", layout="wide")
 
-DATA_FILE = "data.csv"
+DATA_FILE = "bedrijven.csv"
 
+# =========================
+# HULPFUNCTIES
+# =========================
 
-# Score berekening
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = 0
+    score += projecten * 10
+    score += vacatures * 15
 
-    # Projecten
-    score += projecten * 5  # max 50
-
-    # Vacatures
-    if vacatures == "Ja":
+    if fase == "Start":
         score += 20
-
-    # Werksoort
-    if werksoort in ["Beton / Ruwbouw", "Prefab"]:
-        score += 15
-    else:
+    elif fase == "Uitvoering":
         score += 10
 
-    # Projectfase
-    if fase == "Piek":
-        score += 15
-    elif fase == "Start":
+    if werksoort in ["Ruwbouw", "Prefab"]:
         score += 10
-    else:
-        score += 5
 
     return min(score, 100)
 
-# Data laden
-if os.path.exists(DATA_FILE):
-    df = pd.read_csv(DATA_FILE)
-else:
-    df = pd.DataFrame(columns=[
-        "Bedrijf", "Type", "Werksoort", "Projecten",
-        "Vacatures", "Fase", "Score", "Notitie"
-    ])
 
-st.title("🧠 BouwVraag Radar")
-
-# Sidebar
-st.sidebar.header("Nieuw bedrijf")
-
-bedrijf = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"])
-werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"])
-projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
-vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee", "Ja"])
-fase = st.sidebar.selectbox("Projectfase", ["Start", "Piek", "Afronding"])
-notitie = st.sidebar.text_area("Notitie")
-
-if st.sidebar.button("Opslaan"):
-    score = bereken_score(projecten, vacatures, werksoort, fase)
 def score_kleur(score):
     if score >= 70:
         return "🔴 Hoog"
@@ -66,37 +35,85 @@ def score_kleur(score):
     else:
         return "🟢 Laag"
 
-    nieuw = {
-    "Bedrijf": bedrijf,
-    "Type": type_bedrijf,
-    "Werksoort": werksoort,
-    "Projecten": projecten,
-    "Vacatures": vacatures,
-    "Fase": fase,
-    "Score": score,
-    "Status": status,
-    "Laatste contact": laatst_contact,
-    "Volgende actie": volgende_actie,
-    "Notitie": notitie
-}
 
+def vacature_signaal(vacatures):
+    if vacatures >= 3:
+        return "✅ Actief"
+    elif vacatures > 0:
+        return "🟠 Beperkt"
+    else:
+        return "❌ Geen"
+
+
+# =========================
+# DATA LADEN
+# =========================
+
+if os.path.exists(DATA_FILE):
+    df = pd.read_csv(DATA_FILE)
+else:
+    df = pd.DataFrame(columns=[
+        "Bedrijf", "Type", "Werksoort", "Projecten", "Vacatures",
+        "Fase", "Score", "Prioriteit", "Vacature signaal",
+        "Status", "Laatste contact", "Volgende actie", "Notitie"
+    ])
+
+# =========================
+# SIDEBAR - INVOER
+# =========================
+
+st.sidebar.header("➕ Bedrijf toevoegen")
+
+bedrijf = st.sidebar.text_input("Bedrijfsnaam")
+type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Installateur", "Prefab"])
+werksoort = st.sidebar.selectbox("Werksoort", ["Ruwbouw", "Prefab", "Installatie", "Overig"])
+projecten = st.sidebar.number_input("Aantal projecten", min_value=0, step=1)
+vacatures = st.sidebar.number_input("Aantal vacatures", min_value=0, step=1)
+fase = st.sidebar.selectbox("Projectfase", ["Start", "Uitvoering", "Afronding"])
+
+status = st.sidebar.selectbox(
+    "Status",
+    ["Vandaag bellen", "Deze week", "Later", "Klaar"]
+)
+
+laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
+volgende_actie = st.sidebar.text_input("Volgende actie")
+notitie = st.sidebar.text_area("Notitie")
+
+if st.sidebar.button("💾 Opslaan"):
+    score = bereken_score(projecten, vacatures, werksoort, fase)
+
+    nieuw = {
+        "Bedrijf": bedrijf,
+        "Type": type_bedrijf,
+        "Werksoort": werksoort,
+        "Projecten": projecten,
+        "Vacatures": vacatures,
+        "Fase": fase,
+        "Score": score,
+        "Prioriteit": score_kleur(score),
+        "Vacature signaal": vacature_signaal(vacatures),
+        "Status": status,
+        "Laatste contact": laatst_contact,
+        "Volgende actie": volgende_actie,
+        "Notitie": notitie
+    }
 
     df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
-    st.success(f"Opgeslagen ✅ Score: {score}%")
 
-# Vandaag bellen
-st.subheader("📞 Vandaag bellen")
-if not df.empty:
-    vandaag = df.sort_values("Score", ascending=False).head(5)
-    st.dataframe(vandaag, use_container_width=True)
-else:
+    st.success(f"Opgeslagen ✅ Score: {score}")
+    st.rerun()
+
+# =========================
+# OVERZICHT
+# =========================
+
+st.title("📊 Bouwvraag Radar")
+
+if df.empty:
     st.info("Nog geen bedrijven ingevoerd")
-
-# Alles
-st.subheader("📞 Overzicht & prioriteit")
-
-if not df.empty:
+else:
     volgorde = {
         "Vandaag bellen": 1,
         "Deze week": 2,
@@ -105,54 +122,14 @@ if not df.empty:
     }
 
     df["Status_volgorde"] = df["Status"].map(volgorde)
-    df = df.sort_values(
+
+    df_overzicht = df.sort_values(
         by=["Status_volgorde", "Score"],
         ascending=[True, False]
     )
 
+    st.subheader("📞 Overzicht & prioriteit")
     st.dataframe(
-        df.drop(columns=["Status_volgorde"]),
+        df_overzicht.drop(columns=["Status_volgorde"]),
         use_container_width=True
     )
-else:
-    st.info("Nog geen bedrijven ingevoerd")
-
-
-# Lijst om data te bewaren in de sessie
-if "resultaten" not in st.session_state:
-    st.session_state.resultaten = []
-
-# VOORBEELD: na berekening score
-if st.button("Opslaan"):
-    st.session_state.resultaten.append({
-        "Bedrijf": bedrijf,
-        "Score": score,
-        "Keuze": keuze,
-        "Datum": pd.Timestamp.now().strftime("%d-%m-%Y")
-    })
-
-st.divider()
-st.subheader("📊 Overzicht")
-
-if st.session_state.resultaten:
-    df = pd.DataFrame(st.session_state.resultaten)
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("Nog geen data opgeslagen.")
-if st.button("Optie A"):
-    st.session_state.bedrijven.append({
-        "Bedrijf": "preco",
-        "Type": "Prefab",
-        "Rol": None,
-        "Score": 50,
-        "Notitie": None
-    })
-    
-status = st.sidebar.selectbox(
-    "Status",
-    ["Vandaag bellen", "Deze week", "Later", "Klaar"]
-)
-
-laatst_contact = st.sidebar.date_input("Laatste contact")
-volgende_actie = st.sidebar.text_input("Volgende actie")
-st.dataframe(df, use_container_width=True)
