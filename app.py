@@ -5,6 +5,13 @@ import os
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 
 DATA_FILE = "data.csv"
+nieuw = {
+    "Bedrijf": bedrijf,
+    "Prioriteit": score_kleur(score),
+    "Score": score,
+    "Status": status,
+    ...
+}
 
 # Score berekening
 def bereken_score(projecten, vacatures, werksoort, fase):
