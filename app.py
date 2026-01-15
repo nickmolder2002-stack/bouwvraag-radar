@@ -10,7 +10,8 @@ from openai import OpenAI
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 DATA_FILE = "data.csv"
 
-client = OpenAI()  # leest OPENAI_API_KEY automatisch
+# OpenAI client (leest OPENAI_API_KEY automatisch uit Streamlit Secrets)
+client = OpenAI()
 
 # ========================
 # SCORE LOGICA
@@ -52,6 +53,7 @@ st.title("🧠 BouwVraag Radar")
 # SIDEBAR – INPUT
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
+
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
 type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer","Prefab","Onderhoud"])
 werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman","Beton / Ruwbouw","Prefab"])
@@ -65,7 +67,7 @@ notitie = st.sidebar.text_area("Notitie")
 
 if st.sidebar.button("Opslaan"):
     if bedrijf.strip() == "":
-        st.sidebar.error("Bedrijfsnaam is verplicht")
+        st.sidebar.error("❌ Bedrijfsnaam is verplicht")
     else:
         score = bereken_score(projecten, vacatures, werksoort, fase)
         nieuw = {
@@ -84,53 +86,56 @@ if st.sidebar.button("Opslaan"):
         }
         df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
         df.to_csv(DATA_FILE, index=False)
-        st.sidebar.success(f"Opgeslagen ✅ Score: {score}%")
+        st.sidebar.success(f"✅ Opgeslagen (score: {score}%)")
 
 # ========================
 # VANDAAG BELLEN
 # ========================
 st.subheader("📞 Vandaag bellen")
+
 if not df.empty:
     bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
     st.dataframe(bellen, use_container_width=True)
 else:
-    st.info("Nog geen bedrijven")
+    st.info("Nog geen bedrijven ingevoerd")
 
 # ========================
-# AI ANALYSE (STABIEL & FOUTBESTENDIG)
+# AI ANALYSE (STABIEL & VEILIG)
 # ========================
 def ai_analyse_met_openai(df):
-    if df.empty or len(df) == 0:
+    if df.empty:
         return "⚠️ Nog geen data beschikbaar voor AI-analyse."
 
     try:
         samenvatting = df.head(50).to_csv(index=False)
     except Exception:
-        return "⚠️ Data kon niet correct worden gelezen."
+        return "⚠️ Data kon niet worden gelezen."
 
     prompt = f"""
 Je bent een ervaren sales- en recruitment-analist in de bouwsector.
-Analyseer de data en geef:
-1. Wie vandaag bellen
-2. Welke werksoorten hoogste vraag hebben
-3. Concreet actieadvies
+
+Analyseer de onderstaande data en geef:
+1. Wie moet vandaag gebeld worden
+2. Welke werksoorten de hoogste vraag hebben
+3. Concreet en kort actieadvies
+
 Data:
 {samenvatting}
 """
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini"
+            model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "Analyseer bouwbedrijven voor personeelsvraag."},
+                {"role": "system", "content": "Je analyseert bouwbedrijven voor personeelsvraag."},
                 {"role": "user", "content": prompt}
             ],
             timeout=30
         )
         return response.choices[0].message.content
-except Exception as e:
-    return f"⚠️ AI-fout: {e}"
 
+    except Exception as e:
+        return "⚠️ AI tijdelijk niet beschikbaar. Controleer API-key of probeer later."
 
 # ========================
 # AI SECTIE
@@ -140,18 +145,15 @@ st.subheader("🤖 AI-analyse & advies")
 
 if st.button("🔍 Analyseer met AI"):
     with st.spinner("AI denkt na..."):
-        try:
-            advies = ai_analyse_met_openai(df)
-            st.markdown(advies)
-        except Exception as e:
-            st.error("AI-analyse mislukt. Controleer je API-key.")
-            st.code(str(e))
+        advies = ai_analyse_met_openai(df)
+        st.markdown(advies)
 
 # ========================
 # OVERZICHT
 # ========================
-st.subheader("📊 Overzicht")
+st.subheader("📊 Totaal overzicht")
+
 if not df.empty:
     st.dataframe(df, use_container_width=True)
 else:
-    st.info("Nog geen data")
+    st.info("Nog geen data beschikbaar")
