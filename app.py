@@ -60,6 +60,7 @@ st.title("🧠 BouwVraag Radar")
 # SIDEBAR
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
+
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
 type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"])
 werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"])
@@ -126,6 +127,32 @@ def kleur_rijen(row):
         return ["background-color: #ffe5cc"] * len(row)
     else:
         return ["background-color: #e6ffcc"] * len(row)
+
+# ========================
+# ACTIE KNOPPEN
+# ========================
+st.subheader("✅ Acties")
+
+if not df.empty:
+    for i, row in df.iterrows():
+        col1, col2, col3, col4 = st.columns([3,1,1,1])
+        col1.write(f"**{row['Bedrijf']}** — {row['Status']}")
+
+        if col2.button("📞 Gebeld", key=f"bel_{i}"):
+            df.at[i, "Status"] = "Deze week"
+            df.at[i, "Laatste contact"] = date.today()
+            df.to_csv(DATA_FILE, index=False)
+            st.rerun()
+
+        if col3.button("⏳ Later", key=f"later_{i}"):
+            df.at[i, "Status"] = "Later"
+            df.to_csv(DATA_FILE, index=False)
+            st.rerun()
+
+        if col4.button("🏁 Klaar", key=f"klaar_{i}"):
+            df.at[i, "Status"] = "Klaar"
+            df.to_csv(DATA_FILE, index=False)
+            st.rerun()
 
 # ========================
 # OVERZICHT
