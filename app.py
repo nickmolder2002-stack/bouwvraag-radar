@@ -4,15 +4,13 @@ import os
 from datetime import date
 
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
-
 DATA_FILE = "data.csv"
 
-# ------------------------
+# ========================
 # SCORE LOGICA
-# ------------------------
+# ========================
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = 0
-
     score += projecten * 5  # max 50
 
     if vacatures == "Ja":
@@ -42,9 +40,9 @@ def score_label(score):
         return "🟢 Laag"
 
 
-# ------------------------
+# ========================
 # DATA LADEN
-# ------------------------
+# ========================
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
@@ -63,14 +61,16 @@ else:
         "Notitie"
     ])
 
-# ------------------------
+
+# ========================
 # TITEL
-# ------------------------
+# ========================
 st.title("🧠 BouwVraag Radar")
 
-# ------------------------
+
+# ========================
 # SIDEBAR – NIEUW BEDRIJF
-# ------------------------
+# ========================
 st.sidebar.header("➕ Nieuw bedrijf")
 
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
@@ -83,12 +83,12 @@ werksoort = st.sidebar.selectbox(
 projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
 vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee", "Ja"])
 fase = st.sidebar.selectbox("Projectfase", ["Start", "Piek", "Afronding"])
-
 status = st.sidebar.selectbox(
     "Status", ["Vandaag bellen", "Deze week", "Later", "Klaar"]
 )
-
-laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
+laatst_contact = st.sidebar.date_input(
+    "Laatste contact", value=date.today()
+)
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
@@ -115,12 +115,12 @@ if st.sidebar.button("Opslaan"):
 
         df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
         df.to_csv(DATA_FILE, index=False)
-
         st.sidebar.success(f"Opgeslagen ✅ Score: {score}%")
 
-# ------------------------
+
+# ========================
 # VANDAAG BELLEN
-# ------------------------
+# ========================
 st.subheader("📞 Vandaag bellen")
 
 if not df.empty:
@@ -130,9 +130,30 @@ if not df.empty:
 else:
     st.info("Nog geen bedrijven ingevoerd")
 
-# ------------------------
+
+# ========================
+# CONTACT WAARSCHUWING
+# ========================
+if not df.empty:
+    df["Laatste contact"] = pd.to_datetime(
+        df["Laatste contact"], errors="coerce"
+    )
+
+    df["Dagen_geleden"] = (
+        pd.Timestamp.now() - df["Laatste contact"]
+    ).dt.days
+
+    df["⚠️ Waarschuwing"] = (
+        (df["Dagen_geleden"] >= 14) &
+        (df["Status"] != "Klaar")
+    )
+else:
+    df["⚠️ Waarschuwing"] = False
+
+
+# ========================
 # TOTAAL OVERZICHT
-# ------------------------
+# ========================
 st.subheader("📊 Overzicht & prioriteit")
 
 if not df.empty:
@@ -146,12 +167,12 @@ if not df.empty:
     df["Sort"] = df["Status"].map(volgorde)
 
     df = df.sort_values(
-        by=["Sort", "Score"],
-        ascending=[True, False]
+        by=["⚠️ Waarschuwing", "Sort", "Score"],
+        ascending=[False, True, False]
     )
 
     st.dataframe(
-        df.drop(columns=["Sort"]),
+        df.drop(columns=["Sort", "Dagen_geleden"]),
         use_container_width=True
     )
 else:
