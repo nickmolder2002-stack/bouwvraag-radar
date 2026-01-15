@@ -159,15 +159,14 @@ else:
     st.info("Nog geen data beschikbaar")
 
 # ========================
-# AI MARKTVERKENNING – TOP 10 BEDRIJVEN
+# AI MARKTVERKENNING – PREFAB BETON (SECTOR-ZUIVER)
 # ========================
-
 st.divider()
-st.subheader("🌍 AI Marktverkenning – Bedrijven met personeelsbehoefte")
+st.subheader("🏭 AI Marktverkenning – Prefab beton FABRIEKEN met personeelsbehoefte")
 
-sector_input = st.text_input(
-    "Welke sector of specialisatie?",
-    placeholder="Bijv. prefab beton, utiliteitsbouw, installatietechniek"
+sector_input = st.selectbox(
+    "Kies specialisatie",
+    ["Prefab beton"]
 )
 
 regio_input = st.selectbox(
@@ -175,7 +174,59 @@ regio_input = st.selectbox(
     ["Nederland", "Randstad", "Noord-Brabant", "Gelderland", "Zuid-Holland"]
 )
 
-if st.button("🚀 Zoek bedrijven met personeelsbehoefte"):
+if st.button("🚀 Zoek prefab beton fabrieken"):
+    with st.spinner("AI onderzoekt uitsluitend échte prefab beton producenten..."):
+        try:
+            prompt = f"""
+Je bent een Nederlandse industrie-, productie- en recruitmentanalist.
+
+ZEER BELANGRIJK – HARD FILTER:
+- Neem UITSLUITEND bedrijven mee die ZELF prefab betonelementen PRODUCEREN
+- Bedrijven MOETEN een eigen fabriek hebben
+- Sluit AANNEMERS, PROJECTONTWIKKELAARS en BOUWBEDRIJVEN expliciet uit
+- Bedrijven zoals Heijmans, BAM, Dura Vermeer zijn VERBODEN
+
+Definitie prefab beton producent:
+- Eigen productielocatie
+- Structurele fabricage van prefab betonelementen
+- Levert aan aannemers
+- Geen hoofdaannemer
+
+Taak:
+1. Selecteer alleen échte prefab beton FABRIEKEN in Nederland
+2. Beoordeel per bedrijf of er personeelsbehoefte is
+3. Rangschik op waarschijnlijkheid van wervingsnood
+
+Geef een TOP 10 in EXACT dit formaat:
+
+Bedrijf:
+Type: Prefab beton producent
+Waarom dit GEEN aannemer is:
+Personeelsbehoefte-score (0–100):
+Urgentie (Hoog/Middel/Laag):
+Welke functies:
+Waarom personeel nodig:
+Concreet beladvies:
+Regio: {regio_input}
+
+Twijfel = NIET opnemen.
+"""
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Je bent een kritische Nederlandse prefab beton industrie-analist."},
+                    {"role": "user", "content": prompt}
+                ],
+                timeout=60
+            )
+
+            st.markdown(response.choices[0].message.content)
+
+        except Exception as e:
+            st.error("❌ AI Marktverkenning mislukt.")
+            st.code(str(e))
+
     if sector_input.strip() == "":
         st.warning("Vul een sector of specialisatie in.")
     else:
