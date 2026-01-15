@@ -11,25 +11,20 @@ DATA_FILE = "data.csv"
 # ========================
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = 0
-    score += projecten * 5  # max 50
-
+    score += projecten * 5
     if vacatures == "Ja":
         score += 20
-
     if werksoort in ["Beton / Ruwbouw", "Prefab"]:
         score += 15
     else:
         score += 10
-
     if fase == "Piek":
         score += 15
     elif fase == "Start":
         score += 10
     else:
         score += 5
-
     return min(score, 100)
-
 
 def score_label(score):
     if score >= 70:
@@ -39,6 +34,10 @@ def score_label(score):
     else:
         return "🟢 Laag"
 
+def bepaal_status(score, waarschuwing):
+    if score >= 70 or waarschuwing:
+        return "Vandaag bellen"
+    return "Deze week"
 
 # ========================
 # DATA LADEN
@@ -47,48 +46,27 @@ if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
     df = pd.DataFrame(columns=[
-        "Bedrijf",
-        "Type",
-        "Werksoort",
-        "Projecten",
-        "Vacatures",
-        "Fase",
-        "Score",
-        "Prioriteit",
-        "Status",
-        "Laatste contact",
-        "Volgende actie",
-        "Notitie"
+        "Bedrijf","Type","Werksoort","Projecten","Vacatures",
+        "Fase","Score","Prioriteit","Status",
+        "Laatste contact","Volgende actie","Notitie"
     ])
-
 
 # ========================
 # TITEL
 # ========================
 st.title("🧠 BouwVraag Radar")
 
-
 # ========================
-# SIDEBAR – NIEUW BEDRIJF
+# SIDEBAR
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
-
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox(
-    "Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"]
-)
-werksoort = st.sidebar.selectbox(
-    "Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"]
-)
+type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"])
+werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"])
 projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
 vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee", "Ja"])
 fase = st.sidebar.selectbox("Projectfase", ["Start", "Piek", "Afronding"])
-status = st.sidebar.selectbox(
-    "Status", ["Vandaag bellen", "Deze week", "Later", "Klaar"]
-)
-laatst_contact = st.sidebar.date_input(
-    "Laatste contact", value=date.today()
-)
+laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
@@ -97,6 +75,7 @@ if st.sidebar.button("Opslaan"):
         st.sidebar.error("Bedrijfsnaam is verplicht")
     else:
         score = bereken_score(projecten, vacatures, werksoort, fase)
+        status = bepaal_status(score, False)
 
         nieuw = {
             "Bedrijf": bedrijf,
@@ -117,42 +96,39 @@ if st.sidebar.button("Opslaan"):
         df.to_csv(DATA_FILE, index=False)
         st.sidebar.success(f"Opgeslagen ✅ Score: {score}%")
 
-
 # ========================
 # VANDAAG BELLEN
 # ========================
 st.subheader("📞 Vandaag bellen")
-
 if not df.empty:
-    bellen = df[df["Status"] == "Vandaag bellen"]
-    bellen = bellen.sort_values("Score", ascending=False)
+    bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
     st.dataframe(bellen, use_container_width=True)
 else:
     st.info("Nog geen bedrijven ingevoerd")
 
-
 # ========================
-# CONTACT WAARSCHUWING
+# WAARSCHUWING
 # ========================
 if not df.empty:
-    df["Laatste contact"] = pd.to_datetime(
-        df["Laatste contact"], errors="coerce"
-    )
-
-    df["Dagen_geleden"] = (
-        pd.Timestamp.now() - df["Laatste contact"]
-    ).dt.days
-
-    df["⚠️ Waarschuwing"] = (
-        (df["Dagen_geleden"] >= 14) &
-        (df["Status"] != "Klaar")
-    )
+    df["Laatste contact"] = pd.to_datetime(df["Laatste contact"], errors="coerce")
+    df["Dagen_geleden"] = (pd.Timestamp.now() - df["Laatste contact"]).dt.days
+    df["⚠️"] = (df["Dagen_geleden"] >= 14) & (df["Status"] != "Klaar")
 else:
-    df["⚠️ Waarschuwing"] = False
-
+    df["⚠️"] = False
 
 # ========================
-# TOTAAL OVERZICHT
+# KLEUREN
+# ========================
+def kleur_rijen(row):
+    if row["Prioriteit"] == "🔴 Hoog":
+        return ["background-color: #ffcccc"] * len(row)
+    elif row["Prioriteit"] == "🟠 Middel":
+        return ["background-color: #ffe5cc"] * len(row)
+    else:
+        return ["background-color: #e6ffcc"] * len(row)
+
+# ========================
+# OVERZICHT
 # ========================
 st.subheader("📊 Overzicht & prioriteit")
 
@@ -167,13 +143,16 @@ if not df.empty:
     df["Sort"] = df["Status"].map(volgorde)
 
     df = df.sort_values(
-        by=["⚠️ Waarschuwing", "Sort", "Score"],
+        by=["⚠️", "Sort", "Score"],
         ascending=[False, True, False]
     )
 
-    st.dataframe(
-        df.drop(columns=["Sort", "Dagen_geleden"]),
-        use_container_width=True
+    styled = (
+        df.drop(columns=["Sort", "Dagen_geleden"])
+        .style
+        .apply(kleur_rijen, axis=1)
     )
+
+    st.dataframe(styled, use_container_width=True)
 else:
     st.info("Nog geen data beschikbaar")
