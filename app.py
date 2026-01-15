@@ -10,17 +10,27 @@ from openai import OpenAI
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 DATA_FILE = "data.csv"
 
-client = OpenAI()  # leest OPENAI_API_KEY automatisch
+# 🔑 ZET HIER JE API KEY
+client = OpenAI(api_key="PLAK_HIER_JE_API_SLEUTEL")
 
 # ========================
 # SCORE LOGICA
 # ========================
 def bereken_score(projecten, vacatures, werksoort, fase):
-    score = projecten * 5
+    score = 0
+    score += projecten * 5
     if vacatures == "Ja":
         score += 20
-    score += 15 if werksoort in ["Beton / Ruwbouw", "Prefab"] else 10
-    score += 15 if fase == "Piek" else 10 if fase == "Start" else 5
+    if werksoort in ["Beton / Ruwbouw", "Prefab"]:
+        score += 15
+    else:
+        score += 10
+    if fase == "Piek":
+        score += 15
+    elif fase == "Start":
+        score += 10
+    else:
+        score += 5
     return min(score, 100)
 
 def score_label(score):
@@ -49,7 +59,7 @@ else:
 st.title("🧠 BouwVraag Radar")
 
 # ========================
-# SIDEBAR – INPUT
+# SIDEBAR – NIEUW BEDRIJF
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
@@ -64,9 +74,7 @@ volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
 if st.sidebar.button("Opslaan"):
-    if bedrijf.strip() == "":
-        st.sidebar.error("Bedrijfsnaam is verplicht")
-    else:
+    if bedrijf.strip():
         score = bereken_score(projecten, vacatures, werksoort, fase)
         nieuw = {
             "Bedrijf": bedrijf,
@@ -84,63 +92,7 @@ if st.sidebar.button("Opslaan"):
         }
         df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
         df.to_csv(DATA_FILE, index=False)
-        st.sidebar.success(f"Opgeslagen ✅ Score: {score}%")
-
-# ========================
-# VANDAAG BELLEN
-# ========================
-st.subheader("📞 Vandaag bellen")
-if not df.empty:
-    bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
-    st.dataframe(bellen, use_container_width=True)
-else:
-    st.info("Nog geen bedrijven")
-
-# ========================
-# AI ANALYSE (ECHT)
-# ========================
-def ai_analyse_met_openai(df):
-    if df.empty:
-        return "Nog geen data om te analyseren."
-
-    samenvatting = df.to_csv(index=False)
-
-    prompt = f"""
-Je bent een sales- en recruitment-analist in de bouwsector.
-
-Analyseer onderstaande bedrijfsdata en geef:
-1. Wie moet vandaag gebeld worden
-2. Welke werksoorten hebben hoogste vraag
-3. Concreet actie-advies
-
-Data:
-{samenvatting}
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Je analyseert bouwbedrijven voor personeelsvraag."},
-            {"role": "user", "content": prompt}
-        ]
-    )
-
-    return response.choices[0].message.content
-
-# ========================
-# AI SECTIE
-# ========================
-st.divider()
-st.subheader("🤖 AI-analyse & advies")
-
-if st.button("🔍 Analyseer met AI"):
-    with st.spinner("AI denkt na..."):
-        try:
-            advies = ai_analyse_met_openai(df)
-            st.markdown(advies)
-        except Exception as e:
-            st.error("AI-analyse mislukt. Controleer je API-key.")
-            st.code(str(e))
+        st.sidebar.success("Opgeslagen ✅")
 
 # ========================
 # OVERZICHT
@@ -150,3 +102,38 @@ if not df.empty:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data")
+
+# ========================
+# 🤖 ECHTE AI ANALYSE
+# ========================
+def ai_analyse(df):
+    samenvatting = df[[
+        "Werksoort","Fase","Score","Prioriteit","Status"
+    ]].to_csv(index=False)
+
+    prompt = f"""
+Je bent een ervaren recruiter in de bouwsector.
+
+Analyseer onderstaande data en geef:
+1. Waar zit de hoogste kans op vraag naar vakkrachten?
+2. Welke werksoorten moet vandaag gebeld worden?
+3. Concreet beladvies in duidelijke taal.
+
+Data:
+{samenvatting}
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role":"user","content":prompt}]
+    )
+
+    return response.choices[0].message.content
+
+st.divider()
+st.subheader("🤖 AI‑advies")
+
+if st.button("🔍 Analyseer met AI"):
+    with st.spinner("AI analyseert je data..."):
+        advies = ai_analyse(df)
+        st.markdown(advies)
