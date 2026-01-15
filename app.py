@@ -97,35 +97,40 @@ else:
     st.info("Nog geen bedrijven")
 
 # ========================
-# AI ANALYSE (ECHT)
+# AI ANALYSE (STABIEL & FOUTBESTENDIG)
 # ========================
 def ai_analyse_met_openai(df):
-    if df.empty:
-        return "Nog geen data om te analyseren."
+    if df.empty or len(df) == 0:
+        return "⚠️ Nog geen data beschikbaar voor AI-analyse."
 
-    samenvatting = df.to_csv(index=False)
+    try:
+        samenvatting = df.head(50).to_csv(index=False)
+    except Exception:
+        return "⚠️ Data kon niet correct worden gelezen."
 
     prompt = f"""
-Je bent een sales- en recruitment-analist in de bouwsector.
-
-Analyseer onderstaande bedrijfsdata en geef:
-1. Wie moet vandaag gebeld worden
-2. Welke werksoorten hebben hoogste vraag
-3. Concreet actie-advies
-
+Je bent een ervaren sales- en recruitment-analist in de bouwsector.
+Analyseer de data en geef:
+1. Wie vandaag bellen
+2. Welke werksoorten hoogste vraag hebben
+3. Concreet actieadvies
 Data:
 {samenvatting}
 """
 
-    response = client.chat.completions.create(
-        model="gpt-4.1-mini",
-        messages=[
-            {"role": "system", "content": "Je analyseert bouwbedrijven voor personeelsvraag."},
-            {"role": "user", "content": prompt}
-        ]
-    )
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4.1-mini",
+            messages=[
+                {"role": "system", "content": "Analyseer bouwbedrijven voor personeelsvraag."},
+                {"role": "user", "content": prompt}
+            ],
+            timeout=30
+        )
+        return response.choices[0].message.content
+    except Exception:
+        return "⚠️ AI tijdelijk niet beschikbaar."
 
-    return response.choices[0].message.content
 
 # ========================
 # AI SECTIE
