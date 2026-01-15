@@ -157,3 +157,70 @@ if not df.empty:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data beschikbaar")
+
+# ========================
+# AI MARKTVERKENNING – TOP 10 BEDRIJVEN
+# ========================
+
+st.divider()
+st.subheader("🌍 AI Marktverkenning – Bedrijven met personeelsbehoefte")
+
+sector_input = st.text_input(
+    "Welke sector of specialisatie?",
+    placeholder="Bijv. prefab beton, utiliteitsbouw, installatietechniek"
+)
+
+regio_input = st.selectbox(
+    "Regio",
+    ["Nederland", "Randstad", "Noord-Brabant", "Gelderland", "Zuid-Holland"]
+)
+
+if st.button("🚀 Zoek bedrijven met personeelsbehoefte"):
+    if sector_input.strip() == "":
+        st.warning("Vul een sector of specialisatie in.")
+    else:
+        with st.spinner("AI onderzoekt de markt..."):
+            try:
+                prompt = f"""
+Je bent een zeer ervaren markt- en recruitmentanalist in Nederland.
+
+Taak:
+1. Zoek bestaande Nederlandse bedrijven binnen de sector: {sector_input}
+2. Beoordeel per bedrijf of er waarschijnlijk personeel nodig is
+3. Gebruik signalen zoals:
+   - Vacatures
+   - Groei of uitbreiding
+   - Projectdruk
+   - Moeilijk te vervullen functies
+4. Geef een TOP 10 van bedrijven met de hoogste personeelsbehoefte
+
+Per bedrijf wil ik exact dit formaat:
+
+Bedrijf:
+Sector:
+Personeelsbehoefte-score (0–100):
+Urgentie (Hoog/Middel/Laag):
+Waarom personeel nodig:
+Welke functie(s):
+Concreet beladvies:
+
+Regio-focus: {regio_input}
+
+Wees realistisch, zakelijk en concreet.
+"""
+
+                response = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": "Je bent een Nederlandse bouw- en recruitmentanalist."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    timeout=60
+                )
+
+                resultaat = response.choices[0].message.content
+                st.markdown(resultaat)
+
+            except Exception as e:
+                st.error("❌ AI Marktverkenning mislukt.")
+                st.code(str(e))
