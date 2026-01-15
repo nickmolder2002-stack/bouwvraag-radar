@@ -2,28 +2,25 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import date
+from openai import OpenAI
 
+# ========================
+# CONFIG
+# ========================
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 DATA_FILE = "data.csv"
+
+client = OpenAI()  # leest OPENAI_API_KEY automatisch
 
 # ========================
 # SCORE LOGICA
 # ========================
 def bereken_score(projecten, vacatures, werksoort, fase):
-    score = 0
-    score += projecten * 5
+    score = projecten * 5
     if vacatures == "Ja":
         score += 20
-    if werksoort in ["Beton / Ruwbouw", "Prefab"]:
-        score += 15
-    else:
-        score += 10
-    if fase == "Piek":
-        score += 15
-    elif fase == "Start":
-        score += 10
-    else:
-        score += 5
+    score += 15 if werksoort in ["Beton / Ruwbouw", "Prefab"] else 10
+    score += 15 if fase == "Piek" else 10 if fase == "Start" else 5
     return min(score, 100)
 
 def score_label(score):
@@ -33,48 +30,6 @@ def score_label(score):
         return "🟠 Middel"
     else:
         return "🟢 Laag"
-
-def bepaal_status(score, waarschuwing):
-    if score >= 70 or waarschuwing:
-        return "Vandaag bellen"
-    return "Deze week"
-
-# ========================
-# AI ANALYSE (ZONDER INTERNET)
-# ========================
-def ai_analyse(df):
-    if df.empty:
-        return "Nog geen data om te analyseren."
-
-    analyse = []
-
-    vandaag = df[df["Status"] == "Vandaag bellen"]
-    if not vandaag.empty:
-        namen = ", ".join(vandaag["Bedrijf"].head(5))
-        analyse.append(f"📞 **Vandaag bellen:** {namen}")
-    else:
-        analyse.append("📞 **Vandaag bellen:** geen urgente bedrijven")
-
-    urgent = df[df["Prioriteit"] == "🔴 Hoog"]
-    if not urgent.empty:
-        top_werk = urgent["Werksoort"].value_counts().idxmax()
-        analyse.append(f"👷 **Grootste kans op vraag:** {top_werk}")
-    else:
-        analyse.append("👷 **Grootste kans op vraag:** geen hoge urgentie")
-
-    piek = df[df["Fase"] == "Piek"]
-    if not piek.empty:
-        analyse.append(
-            f"🔥 **Projectfase Piek:** {len(piek)} bedrijven → hoge personeelsbehoefte"
-        )
-
-    laag = df[df["Prioriteit"] == "🟢 Laag"]
-    if not laag.empty:
-        analyse.append(
-            f"⏳ **Lage prioriteit:** {len(laag)} bedrijven → later oppakken"
-        )
-
-    return "\n\n".join(analyse)
 
 # ========================
 # DATA LADEN
@@ -94,16 +49,16 @@ else:
 st.title("🧠 BouwVraag Radar")
 
 # ========================
-# SIDEBAR – NIEUW BEDRIJF
+# SIDEBAR – INPUT
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
-
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer", "Prefab", "Onderhoud"])
-werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman", "Beton / Ruwbouw", "Prefab"])
+type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer","Prefab","Onderhoud"])
+werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman","Beton / Ruwbouw","Prefab"])
 projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
-vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee", "Ja"])
-fase = st.sidebar.selectbox("Projectfase", ["Start", "Piek", "Afronding"])
+vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee","Ja"])
+fase = st.sidebar.selectbox("Projectfase", ["Start","Piek","Afronding"])
+status = st.sidebar.selectbox("Status", ["Vandaag bellen","Deze week","Later","Klaar"])
 laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
@@ -113,8 +68,6 @@ if st.sidebar.button("Opslaan"):
         st.sidebar.error("Bedrijfsnaam is verplicht")
     else:
         score = bereken_score(projecten, vacatures, werksoort, fase)
-        status = bepaal_status(score, False)
-
         nieuw = {
             "Bedrijf": bedrijf,
             "Type": type_bedrijf,
@@ -129,7 +82,6 @@ if st.sidebar.button("Opslaan"):
             "Volgende actie": volgende_actie,
             "Notitie": notitie
         }
-
         df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
         df.to_csv(DATA_FILE, index=False)
         st.sidebar.success(f"Opgeslagen ✅ Score: {score}%")
@@ -142,47 +94,59 @@ if not df.empty:
     bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
     st.dataframe(bellen, use_container_width=True)
 else:
-    st.info("Nog geen bedrijven ingevoerd")
+    st.info("Nog geen bedrijven")
 
 # ========================
-# WAARSCHUWING
+# AI ANALYSE (ECHT)
 # ========================
-if not df.empty:
-    df["Laatste contact"] = pd.to_datetime(df["Laatste contact"], errors="coerce")
-    df["Dagen_geleden"] = (pd.Timestamp.now() - df["Laatste contact"]).dt.days
-    df["⚠️"] = (df["Dagen_geleden"] >= 14) & (df["Status"] != "Klaar")
-else:
-    df["⚠️"] = False
+def ai_analyse_met_openai(df):
+    if df.empty:
+        return "Nog geen data om te analyseren."
 
-# ========================
-# OVERZICHT
-# ========================
-st.subheader("📊 Overzicht & prioriteit")
-if not df.empty:
-    volgorde = {
-        "Vandaag bellen": 1,
-        "Deze week": 2,
-        "Later": 3,
-        "Klaar": 4
-    }
-    df["Sort"] = df["Status"].map(volgorde)
-    df = df.sort_values(
-        by=["⚠️", "Sort", "Score"],
-        ascending=[False, True, False]
+    samenvatting = df.to_csv(index=False)
+
+    prompt = f"""
+Je bent een sales- en recruitment-analist in de bouwsector.
+
+Analyseer onderstaande bedrijfsdata en geef:
+1. Wie moet vandaag gebeld worden
+2. Welke werksoorten hebben hoogste vraag
+3. Concreet actie-advies
+
+Data:
+{samenvatting}
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4.1-mini",
+        messages=[
+            {"role": "system", "content": "Je analyseert bouwbedrijven voor personeelsvraag."},
+            {"role": "user", "content": prompt}
+        ]
     )
-    st.dataframe(
-        df.drop(columns=["Sort", "Dagen_geleden"]),
-        use_container_width=True
-    )
-else:
-    st.info("Nog geen data beschikbaar")
+
+    return response.choices[0].message.content
 
 # ========================
-# AI ANALYSE SECTIE
+# AI SECTIE
 # ========================
 st.divider()
 st.subheader("🤖 AI-analyse & advies")
 
-if st.button("🔍 Analyseer kansen"):
-    advies = ai_analyse(df)
-    st.markdown(advies)
+if st.button("🔍 Analyseer met AI"):
+    with st.spinner("AI denkt na..."):
+        try:
+            advies = ai_analyse_met_openai(df)
+            st.markdown(advies)
+        except Exception as e:
+            st.error("AI-analyse mislukt. Controleer je API-key.")
+            st.code(str(e))
+
+# ========================
+# OVERZICHT
+# ========================
+st.subheader("📊 Overzicht")
+if not df.empty:
+    st.dataframe(df, use_container_width=True)
+else:
+    st.info("Nog geen data")
