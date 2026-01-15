@@ -4,18 +4,18 @@ import os
 from datetime import date
 from openai import OpenAI
 
-# ========================
+# =====================================================
 # CONFIG
-# ========================
+# =====================================================
 st.set_page_config(page_title="BouwVraag Radar", layout="wide")
 DATA_FILE = "data.csv"
 
-# OpenAI client (leest OPENAI_API_KEY automatisch uit Streamlit Secrets)
+# OpenAI client (leest OPENAI_API_KEY uit Streamlit Secrets)
 client = OpenAI()
 
-# ========================
+# =====================================================
 # SCORE LOGICA
-# ========================
+# =====================================================
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = projecten * 5
     if vacatures == "Ja":
@@ -32,9 +32,9 @@ def score_label(score):
     else:
         return "🟢 Laag"
 
-# ========================
+# =====================================================
 # DATA LADEN
-# ========================
+# =====================================================
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
@@ -44,18 +44,21 @@ else:
         "Laatste contact","Volgende actie","Notitie"
     ])
 
-# ========================
+# =====================================================
 # TITEL
-# ========================
+# =====================================================
 st.title("🧠 BouwVraag Radar")
 
-# ========================
+# =====================================================
 # SIDEBAR – INPUT
-# ========================
+# =====================================================
 st.sidebar.header("➕ Nieuw bedrijf")
 
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
-type_bedrijf = st.sidebar.selectbox("Type bedrijf", ["Aannemer","Prefab","Onderhoud"])
+type_bedrijf = st.sidebar.selectbox(
+    "Type bedrijf",
+    ["Aannemer","Onderaannemer","Prefab beton","Modulaire woningbouw","Toelevering / Werkplaats","Afbouw"]
+)
 werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman","Beton / Ruwbouw","Prefab"])
 projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
 vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee","Ja"])
@@ -88,36 +91,32 @@ if st.sidebar.button("Opslaan"):
         df.to_csv(DATA_FILE, index=False)
         st.sidebar.success(f"✅ Opgeslagen (score: {score}%)")
 
-# ========================
+# =====================================================
 # VANDAAG BELLEN
-# ========================
+# =====================================================
 st.subheader("📞 Vandaag bellen")
-
 if not df.empty:
     bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
     st.dataframe(bellen, use_container_width=True)
 else:
     st.info("Nog geen bedrijven ingevoerd")
 
-# ========================
-# AI ANALYSE (STABIEL & VEILIG)
-# ========================
+# =====================================================
+# AI ANALYSE OP JE EIGEN DATA
+# =====================================================
 def ai_analyse_met_openai(df):
     if df.empty:
         return "⚠️ Nog geen data beschikbaar voor AI-analyse."
 
-    try:
-        samenvatting = df.head(50).to_csv(index=False)
-    except Exception:
-        return "⚠️ Data kon niet worden gelezen."
+    samenvatting = df.head(50).to_csv(index=False)
 
     prompt = f"""
-Je bent een ervaren sales- en recruitment-analist in de bouwsector.
+Je bent een ervaren Nederlandse sales- en recruitmentanalist in de bouwsector.
 
-Analyseer de onderstaande data en geef:
-1. Wie moet vandaag gebeld worden
+Analyseer deze bedrijfsdata en geef:
+1. Wie vandaag gebeld moet worden
 2. Welke werksoorten de hoogste vraag hebben
-3. Concreet en kort actieadvies
+3. Concreet actieadvies per type bedrijf
 
 Data:
 {samenvatting}
@@ -133,40 +132,33 @@ Data:
             timeout=30
         )
         return response.choices[0].message.content
+    except Exception:
+        return "⚠️ AI tijdelijk niet beschikbaar."
 
-    except Exception as e:
-        return "⚠️ AI tijdelijk niet beschikbaar. Controleer API-key of probeer later."
-
-# ========================
-# AI SECTIE
-# ========================
 st.divider()
-st.subheader("🤖 AI-analyse & advies")
+st.subheader("🤖 AI-analyse & advies (eigen data)")
 
 if st.button("🔍 Analyseer met AI"):
     with st.spinner("AI denkt na..."):
         advies = ai_analyse_met_openai(df)
         st.markdown(advies)
 
-# ========================
-# OVERZICHT
-# ========================
-st.subheader("📊 Totaal overzicht")
-
-if not df.empty:
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("Nog geen data beschikbaar")
-
-# ========================
-# AI MARKTVERKENNING – PREFAB BETON (SECTOR-ZUIVER)
-# ========================
+# =====================================================
+# AI MARKTVERKENNING – LIVE INTELLIGENCE (SLIM & REALISTISCH)
+# =====================================================
 st.divider()
-st.subheader("🏭 AI Marktverkenning – Prefab beton FABRIEKEN met personeelsbehoefte")
+st.subheader("🌍 AI Marktverkenning – Personeelsbehoefte")
 
 sector_input = st.selectbox(
-    "Kies specialisatie",
-    ["Prefab beton"]
+    "Selecteer sector",
+    [
+        "Prefab beton producent",
+        "Hoofdaannemer",
+        "Onderaannemer",
+        "Modulaire woningbouw",
+        "Toelevering / Werkplaats",
+        "Afbouw"
+    ]
 )
 
 regio_input = st.selectbox(
@@ -174,104 +166,66 @@ regio_input = st.selectbox(
     ["Nederland", "Randstad", "Noord-Brabant", "Gelderland", "Zuid-Holland"]
 )
 
-if st.button("🚀 Zoek prefab beton fabrieken"):
-    with st.spinner("AI onderzoekt uitsluitend échte prefab beton producenten..."):
-        try:
-            prompt = f"""
-Je bent een Nederlandse industrie-, productie- en recruitmentanalist.
+if st.button("🚀 Zoek bedrijven met personeelsbehoefte"):
+    with st.spinner("AI onderzoekt markt en signalen..."):
+        prompt = f"""
+Je bent een zeer kritische Nederlandse industrie- en recruitmentanalist.
 
-ZEER BELANGRIJK – HARD FILTER:
-- Neem UITSLUITEND bedrijven mee die ZELF prefab betonelementen PRODUCEREN
-- Bedrijven MOETEN een eigen fabriek hebben
-- Sluit AANNEMERS, PROJECTONTWIKKELAARS en BOUWBEDRIJVEN expliciet uit
-- Bedrijven zoals Heijmans, BAM, Dura Vermeer zijn VERBODEN
-
-Definitie prefab beton producent:
-- Eigen productielocatie
-- Structurele fabricage van prefab betonelementen
-- Levert aan aannemers
-- Geen hoofdaannemer
+BELANGRIJK:
+- Neem ALLEEN echte bedrijven mee
+- Voor 'Prefab beton producent':
+  - Moet een eigen fabriek hebben
+  - Produceert zelf prefab betonelementen
+  - Sluit aannemers (zoals BAM, Heijmans, Dura Vermeer) UIT
 
 Taak:
-1. Selecteer alleen échte prefab beton FABRIEKEN in Nederland
-2. Beoordeel per bedrijf of er personeelsbehoefte is
-3. Rangschik op waarschijnlijkheid van wervingsnood
+1. Selecteer maximaal 10 bedrijven binnen deze sector: {sector_input}
+2. Beoordeel of zij personeel nodig hebben (vacatures, groei, projectdruk)
+3. Bepaal WIE binnen het bedrijf gaat over personeels-inleen
 
-Geef een TOP 10 in EXACT dit formaat:
+Geef per bedrijf EXACT dit formaat:
 
 Bedrijf:
-Type: Prefab beton producent
-Waarom dit GEEN aannemer is:
+Type:
+Waarom valide:
 Personeelsbehoefte-score (0–100):
 Urgentie (Hoog/Middel/Laag):
-Welke functies:
-Waarom personeel nodig:
+Actuele signalen:
+Welke functies gevraagd:
+
+Beslisser personeels-inleen:
+- Functie (geen naam gokken)
+- Afdeling
+- Waarschijnlijkheid (Hoog/Middel)
+- Benaderstrategie
+
 Concreet beladvies:
 Regio: {regio_input}
 
-Twijfel = NIET opnemen.
+Wees streng. Twijfel = NIET opnemen.
 """
 
+        try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
                 messages=[
-                    {"role": "system", "content": "Je bent een kritische Nederlandse prefab beton industrie-analist."},
+                    {"role": "system", "content": "Je analyseert personeelsbehoefte in de Nederlandse bouwsector."},
                     {"role": "user", "content": prompt}
                 ],
                 timeout=60
             )
-
             st.markdown(response.choices[0].message.content)
-
         except Exception as e:
-            st.error("❌ AI Marktverkenning mislukt.")
+            st.error("❌ Marktverkenning mislukt")
             st.code(str(e))
 
-    if sector_input.strip() == "":
-        st.warning("Vul een sector of specialisatie in.")
-    else:
-        with st.spinner("AI onderzoekt de markt..."):
-            try:
-                prompt = f"""
-Je bent een zeer ervaren markt- en recruitmentanalist in Nederland.
+# =====================================================
+# OVERZICHT
+# =====================================================
+st.divider()
+st.subheader("📊 Totaal overzicht")
 
-Taak:
-1. Zoek bestaande Nederlandse bedrijven binnen de sector: {sector_input}
-2. Beoordeel per bedrijf of er waarschijnlijk personeel nodig is
-3. Gebruik signalen zoals:
-   - Vacatures
-   - Groei of uitbreiding
-   - Projectdruk
-   - Moeilijk te vervullen functies
-4. Geef een TOP 10 van bedrijven met de hoogste personeelsbehoefte
-
-Per bedrijf wil ik exact dit formaat:
-
-Bedrijf:
-Sector:
-Personeelsbehoefte-score (0–100):
-Urgentie (Hoog/Middel/Laag):
-Waarom personeel nodig:
-Welke functie(s):
-Concreet beladvies:
-
-Regio-focus: {regio_input}
-
-Wees realistisch, zakelijk en concreet.
-"""
-
-                response = client.chat.completions.create(
-                    model="gpt-4o-mini",
-                    messages=[
-                        {"role": "system", "content": "Je bent een Nederlandse bouw- en recruitmentanalist."},
-                        {"role": "user", "content": prompt}
-                    ],
-                    timeout=60
-                )
-
-                resultaat = response.choices[0].message.content
-                st.markdown(resultaat)
-
-            except Exception as e:
-                st.error("❌ AI Marktverkenning mislukt.")
-                st.code(str(e))
+if not df.empty:
+    st.dataframe(df, use_container_width=True)
+else:
+    st.info("Nog geen data beschikbaar")
