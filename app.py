@@ -120,7 +120,7 @@ Data:
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4o-mini"
             messages=[
                 {"role": "system", "content": "Analyseer bouwbedrijven voor personeelsvraag."},
                 {"role": "user", "content": prompt}
@@ -128,8 +128,8 @@ Data:
             timeout=30
         )
         return response.choices[0].message.content
-    except Exception:
-        return "⚠️ AI tijdelijk niet beschikbaar."
+except Exception as e:
+    return f"⚠️ AI-fout: {e}"
 
 
 # ========================
