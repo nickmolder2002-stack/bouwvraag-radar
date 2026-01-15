@@ -40,6 +40,43 @@ def bepaal_status(score, waarschuwing):
     return "Deze week"
 
 # ========================
+# AI ANALYSE (ZONDER INTERNET)
+# ========================
+def ai_analyse(df):
+    if df.empty:
+        return "Nog geen data om te analyseren."
+
+    analyse = []
+
+    vandaag = df[df["Status"] == "Vandaag bellen"]
+    if not vandaag.empty:
+        namen = ", ".join(vandaag["Bedrijf"].head(5))
+        analyse.append(f"📞 **Vandaag bellen:** {namen}")
+    else:
+        analyse.append("📞 **Vandaag bellen:** geen urgente bedrijven")
+
+    urgent = df[df["Prioriteit"] == "🔴 Hoog"]
+    if not urgent.empty:
+        top_werk = urgent["Werksoort"].value_counts().idxmax()
+        analyse.append(f"👷 **Grootste kans op vraag:** {top_werk}")
+    else:
+        analyse.append("👷 **Grootste kans op vraag:** geen hoge urgentie")
+
+    piek = df[df["Fase"] == "Piek"]
+    if not piek.empty:
+        analyse.append(
+            f"🔥 **Projectfase Piek:** {len(piek)} bedrijven → hoge personeelsbehoefte"
+        )
+
+    laag = df[df["Prioriteit"] == "🟢 Laag"]
+    if not laag.empty:
+        analyse.append(
+            f"⏳ **Lage prioriteit:** {len(laag)} bedrijven → later oppakken"
+        )
+
+    return "\n\n".join(analyse)
+
+# ========================
 # DATA LADEN
 # ========================
 if os.path.exists(DATA_FILE):
@@ -57,7 +94,7 @@ else:
 st.title("🧠 BouwVraag Radar")
 
 # ========================
-# SIDEBAR
+# SIDEBAR – NIEUW BEDRIJF
 # ========================
 st.sidebar.header("➕ Nieuw bedrijf")
 
@@ -118,47 +155,9 @@ else:
     df["⚠️"] = False
 
 # ========================
-# KLEUREN
-# ========================
-def kleur_rijen(row):
-    if row["Prioriteit"] == "🔴 Hoog":
-        return ["background-color: #ffcccc"] * len(row)
-    elif row["Prioriteit"] == "🟠 Middel":
-        return ["background-color: #ffe5cc"] * len(row)
-    else:
-        return ["background-color: #e6ffcc"] * len(row)
-
-# ========================
-# ACTIE KNOPPEN
-# ========================
-st.subheader("✅ Acties")
-
-if not df.empty:
-    for i, row in df.iterrows():
-        col1, col2, col3, col4 = st.columns([3,1,1,1])
-        col1.write(f"**{row['Bedrijf']}** — {row['Status']}")
-
-        if col2.button("📞 Gebeld", key=f"bel_{i}"):
-            df.at[i, "Status"] = "Deze week"
-            df.at[i, "Laatste contact"] = date.today()
-            df.to_csv(DATA_FILE, index=False)
-            st.rerun()
-
-        if col3.button("⏳ Later", key=f"later_{i}"):
-            df.at[i, "Status"] = "Later"
-            df.to_csv(DATA_FILE, index=False)
-            st.rerun()
-
-        if col4.button("🏁 Klaar", key=f"klaar_{i}"):
-            df.at[i, "Status"] = "Klaar"
-            df.to_csv(DATA_FILE, index=False)
-            st.rerun()
-
-# ========================
 # OVERZICHT
 # ========================
 st.subheader("📊 Overzicht & prioriteit")
-
 if not df.empty:
     volgorde = {
         "Vandaag bellen": 1,
@@ -166,20 +165,24 @@ if not df.empty:
         "Later": 3,
         "Klaar": 4
     }
-
     df["Sort"] = df["Status"].map(volgorde)
-
     df = df.sort_values(
         by=["⚠️", "Sort", "Score"],
         ascending=[False, True, False]
     )
-
-    styled = (
-        df.drop(columns=["Sort", "Dagen_geleden"])
-        .style
-        .apply(kleur_rijen, axis=1)
+    st.dataframe(
+        df.drop(columns=["Sort", "Dagen_geleden"]),
+        use_container_width=True
     )
-
-    st.dataframe(styled, use_container_width=True)
 else:
     st.info("Nog geen data beschikbaar")
+
+# ========================
+# AI ANALYSE SECTIE
+# ========================
+st.divider()
+st.subheader("🤖 AI-analyse & advies")
+
+if st.button("🔍 Analyseer kansen"):
+    advies = ai_analyse(df)
+    st.markdown(advies)
