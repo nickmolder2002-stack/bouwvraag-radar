@@ -309,3 +309,29 @@ def zoek_bedrijven_google(query, max_results=10):
             "snippet": item.get("snippet", "")
         })
     return resultaten
+st.divider()
+st.subheader("🌍 AI Marktverkenning – échte bedrijven")
+
+sector_keuze = st.selectbox("Selecteer sector", list(SECTOR_CONFIG.keys()))
+regio_keuze = st.selectbox("Regio", [
+    "Nederland", "Randstad", "Noord-Brabant", "Gelderland", "Zuid-Holland"
+])
+
+if st.button("🚀 Zoek & analyseer bedrijven"):
+    with st.spinner("Internet wordt onderzocht..."):
+        alle_bedrijven = []
+
+        for term in SECTOR_CONFIG[sector_keuze]["zoektermen"]:
+            gevonden = zoek_bedrijven_google(f"{term} {regio_keuze}")
+            for b in gevonden:
+                if valideer_bedrijf(b, sector_keuze):
+                    alle_bedrijven.append(b)
+
+        # dubbele eruit
+        uniek = {b["link"]: b for b in alle_bedrijven}.values()
+
+        if not uniek:
+            st.error("❌ Geen valide bedrijven gevonden.")
+        else:
+            resultaat = analyseer_bedrijven_met_ai(list(uniek), sector_keuze, regio_keuze)
+            st.markdown(resultaat)
