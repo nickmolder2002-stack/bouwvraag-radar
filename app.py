@@ -1,9 +1,13 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import os
 from datetime import date
-import requests
 from openai import OpenAI
+
+# 🔍 SUPERSNEL TESTEN – TIJDELIJK
+st.write("OpenAI key gevonden:", "OPENAI_API_KEY" in st.secrets)
+st.write("Google key gevonden:", "GOOGLE_API_KEY" in st.secrets)
+st.write("Google CX gevonden:", "GOOGLE_CX" in st.secrets)
 
 # =====================================================
 # CONFIG
