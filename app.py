@@ -1,122 +1,142 @@
 import streamlit as st
 import os
-import requests
 from openai import OpenAI
 
-# ===============================
+# =====================================================
 # CONFIG
-# ===============================
+# =====================================================
 st.set_page_config(
-    page_title="🧠 BouwVraag Radar",
+    page_title="BouwVraag Radar",
     layout="centered"
 )
 
 st.title("🧠 BouwVraag Radar")
-st.caption("AI‑tool voor sales: ontdek waar personeelsvraag zit in de bouw")
+st.caption("Sales‑tool: ontdek waar NU personeelsvraag zit in de bouw")
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-# ===============================
-# HULPFUNCTIES
-# ===============================
+# =====================================================
+# HULPLOGICA
+# =====================================================
 
-def is_branche_zoekopdracht(query: str) -> bool:
-    branche_keywords = [
-        "onderaanneming",
-        "onderaannemer",
-        "prefab",
-        "prefab beton",
-        "modulaire woningbouw",
-        "bouw",
-        "timmer",
-        "beton",
-        "ruwbouw"
-    ]
-    return any(k in query.lower() for k in branche_keywords)
+BRANCHE_KEYWORDS = [
+    "onderaanneming",
+    "onderaannemer",
+    "prefab",
+    "prefab beton",
+    "modulaire woningbouw",
+    "timmer",
+    "beton",
+    "ruwbouw",
+    "bouw"
+]
+
+def is_branche_input(query: str) -> bool:
+    return any(k in query.lower() for k in BRANCHE_KEYWORDS)
 
 
-def analyseer_met_ai(prompt: str) -> str:
+def ai_analyse(prompt: str) -> str:
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": "Je bent een ervaren sales-analist in de bouwsector."},
+            {"role": "system", "content": "Je bent een extreem scherpe sales-analist in de Nederlandse bouwsector."},
             {"role": "user", "content": prompt}
         ],
-        temperature=0.2
+        temperature=0.1
     )
     return response.choices[0].message.content
 
 
-# ===============================
-# UI – ENIGE INPUT
-# ===============================
+# =====================================================
+# UI — ENIGE INPUT
+# =====================================================
 
 zoekterm = st.text_input(
     "🔍 Bedrijfsnaam of branche",
     placeholder="Bijv. 'Bouwbedrijf Jansen BV' of 'onderaanneming'"
 )
 
-analyse_knop = st.button("Analyseer")
+if st.button("Analyseer") and zoekterm.strip():
 
-# ===============================
-# LOGICA
-# ===============================
+    with st.spinner("AI analyseert personeelsvraag..."):
 
-if analyse_knop and zoekterm.strip():
-
-    with st.spinner("AI onderzoekt personeelsvraag..."):
-
-        if is_branche_zoekopdracht(zoekterm):
+        # =================================================
+        # BRANCHE MODE
+        # =================================================
+        if is_branche_input(zoekterm):
             prompt = f"""
-Je krijgt een branche of type bedrijf: "{zoekterm}"
+Je krijgt deze branche-input: "{zoekterm}"
 
-Doe het volgende:
-1. Interpreteer dit als bouw-gerelateerde bedrijven in Nederland
-2. Denk aan onderaannemers, prefab, beton, modulaire woningbouw (indien relevant)
-3. Ga uit van algemene marktkennis (geen exacte data nodig)
-4. Selecteer 3 typische bedrijven (fictief maar realistisch)
-5. Beoordeel per bedrijf of er waarschijnlijk personeelsvraag is
+Doel:
+Selecteer 3 REALISTISCHE (fictieve) Nederlandse bouwbedrijven
+die waarschijnlijk personeelsvraag hebben.
 
-Geef output EXACT in dit format:
+Voor elk bedrijf:
+- Bepaal type bedrijf
+- Analyseer personeelsdruk
+- Geef een score (0-100) op basis van:
+  * type bedrijf
+  * marktcontext
+  * waarschijnlijke vacatures
+  * urgentie
+  * trek punten af bij twijfel
+
+Geef OUTPUT EXACT in dit format:
 
 BEDRIJF: <naam>
 TYPE: <type>
-SIGNALEN: <korte uitleg>
-KANS: 🔴 Hoog / 🟠 Middel / 🟢 Laag
-ACTIE: <Vandaag bellen / Deze week / Niet bellen>
+SCORE: <0-100>
+LABEL: 🔴 HEET / 🟠 WARM / 🟢 KOUD
+REDENEN:
+- <reden 1>
+- <reden 2>
+ADVIES: <Vandaag bellen / Deze week / Niet bellen>
 
 Herhaal dit 3 keer.
 """
-            resultaat = analyseer_met_ai(prompt)
+            resultaat = ai_analyse(prompt)
 
             st.subheader("📊 Beste sales‑kansen")
             st.markdown(resultaat)
 
+        # =================================================
+        # BEDRIJF MODE
+        # =================================================
         else:
             prompt = f"""
 Analyseer dit bedrijf: "{zoekterm}"
 
 Doe het volgende:
 1. Bepaal wat voor bouwbedrijf dit waarschijnlijk is
-2. Schat of er personeelsvraag is (op basis van type, groei, markt)
-3. Wees kritisch: alleen hoog als het logisch is
+2. Beoordeel personeelsdruk
+3. Geef een SCORE (0-100) op basis van:
+   - type bedrijf
+   - marktcontext
+   - aannemelijke personeelsvraag
+   - urgentie
+4. Classificeer:
+   80-100 = 🔴 HEET
+   60-79  = 🟠 WARM
+   <60    = 🟢 KOUD
 
-Geef output EXACT in dit format:
+Geef OUTPUT EXACT in dit format:
 
 BEDRIJF:
 TYPE:
-SIGNALEN:
-KANS:
+SCORE:
+LABEL:
+REDENEN:
+- <reden 1>
+- <reden 2>
 ADVIES:
 """
-            resultaat = analyseer_met_ai(prompt)
+            resultaat = ai_analyse(prompt)
 
             st.subheader("📋 Bedrijfsanalyse")
             st.markdown(resultaat)
 
-# ===============================
+# =====================================================
 # FOOTER
-# ===============================
+# =====================================================
 st.markdown("---")
 st.caption("Geen CRM. Geen ruis. Alleen bellen waar het loont.")
-
