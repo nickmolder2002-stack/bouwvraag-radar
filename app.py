@@ -150,3 +150,57 @@ st.dataframe(
     df.sort_values("Score", ascending=False),
     use_container_width=True
 )
+# =====================================================
+# AI BELSCRIPT PER BEDRIJF
+# =====================================================
+st.divider()
+st.subheader("📞 AI Belscript (per bedrijf)")
+
+if not df.empty:
+    gekozen_bedrijf = st.selectbox(
+        "Selecteer bedrijf",
+        df["Bedrijf"].unique()
+    )
+
+    rij = df[df["Bedrijf"] == gekozen_bedrijf].iloc[0]
+
+    if st.button("🎤 Genereer AI-belscript"):
+        with st.spinner("AI schrijft belscript..."):
+            prompt = f"""
+Je bent een zeer ervaren Nederlandse salesprofessional in de bouwsector.
+
+Schrijf een kort, krachtig belscript (max 30 seconden) voor dit bedrijf.
+
+BEDRIJF:
+- Naam: {rij['Bedrijf']}
+- Type: {rij['Type']}
+- Projectfase: {rij['Fase']}
+- Vacature functies: {rij['Vacature functies']}
+- Vacature druk: {rij['Vacature druk']}
+- Score: {rij['Score']}
+- Beladvies: {rij['Beladvies']}
+
+Eisen:
+- Direct toepasbaar
+- Natuurlijk Nederlands
+- Geen marketingtaal
+- Eindig met een duidelijke vraag
+"""
+
+            response = client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[
+                    {"role": "system", "content": "Je schrijft commerciële belscripts voor de bouw."},
+                    {"role": "user", "content": prompt}
+                ],
+                timeout=30
+            )
+
+            st.success("🎯 AI‑belscript klaar")
+            st.text_area(
+                "📄 Belscript (klaar om te bellen)",
+                response.choices[0].message.content,
+                height=220
+            )
+else:
+    st.info("Nog geen bedrijven beschikbaar")
