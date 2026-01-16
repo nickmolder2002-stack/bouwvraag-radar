@@ -125,23 +125,39 @@ status = st.sidebar.selectbox("Status", ["Vandaag bellen","Deze week","Later","K
 laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
 notitie = st.sidebar.text_area("Notitie")
 
-if st.sidebar.button("Opslaan & analyseer"):
-    vacatures = detecteer_vacature_signalen(bedrijf)
+if st.sidebar.button("Opslaan"):
     score = bereken_score(projecten, vacatures, werksoort, fase)
 
-    nieuw = {
+    beslisser_functie, beslisser_afdeling = bepaal_beslisser(type_bedrijf)
+
+    beladvies = genereer_beladvies(
+        score=score,
+        vacature_signalen=vacatures
+    )
+
+    auto_status = "Vandaag bellen" if score >= 70 else status
+
+    df = pd.concat([df, pd.DataFrame([{
         "Bedrijf": bedrijf,
         "Type": type_bedrijf,
         "Werksoort": werksoort,
         "Projecten": projecten,
+        "Vacatures": vacatures,
         "Fase": fase,
-        "Vacature_signalen": ", ".join(vacatures) if vacatures else "Geen",
         "Score": score,
         "Prioriteit": score_label(score),
-        "Status": status,
+        "Status": auto_status,
         "Laatste contact": laatst_contact,
-        "Notitie": notitie
-    }
+        "Volgende actie": volgende_actie,
+        "Notitie": notitie,
+        "Beslisser functie": beslisser_functie,
+        "Beslisser afdeling": beslisser_afdeling,
+        "Beladvies": beladvies
+    }])], ignore_index=True)
+
+    df.to_csv(DATA_FILE, index=False)
+    st.sidebar.success(f"✅ Opgeslagen — advies: {beladvies}")
+
 
     df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
     df.to_csv(DATA_FILE, index=False)
