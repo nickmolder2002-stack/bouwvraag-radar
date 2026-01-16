@@ -229,3 +229,61 @@ if not df.empty:
     st.dataframe(df, use_container_width=True)
 else:
     st.info("Nog geen data beschikbaar")
+# ========================
+# SECTOR DEFINITIES (HARD)
+# ========================
+
+SECTOR_CONFIG = {
+    "Prefab beton": {
+        "zoektermen": [
+            "prefab beton fabriek",
+            "betonelementen fabriek",
+            "prefab betonelementen productie"
+        ],
+        "uitsluiten": [
+            "aannemer",
+            "bouwbedrijf",
+            "infra",
+            "projectontwikkeling"
+        ]
+    },
+    "Modulaire woningbouw": {
+        "zoektermen": [
+            "modulaire woningen fabriek",
+            "industrieel woningbouw systeem",
+            "woningmodules productie"
+        ],
+        "uitsluiten": [
+            "aannemer",
+            "bouwbedrijf"
+        ]
+    },
+    "Hoofdaannemer": {
+        "zoektermen": [
+            "hoofdaannemer bouw",
+            "utiliteitsbouw aannemer"
+        ],
+        "uitsluiten": []
+    },
+    "Onderaannemer": {
+        "zoektermen": [
+            "betononderaannemer",
+            "ruwbouw specialist"
+        ],
+        "uitsluiten": []
+    },
+    "Toelevering / Werkplaats": {
+        "zoektermen": [
+            "beton wapening productie",
+            "bouw toeleverancier fabriek"
+        ],
+        "uitsluiten": []
+    },
+    "Afbouw": {
+        "zoektermen": [
+            "afbouwbedrijf",
+            "gipswanden montage"
+        ],
+        "uitsluiten": []
+    }
+}
