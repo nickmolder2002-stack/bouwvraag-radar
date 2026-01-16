@@ -287,3 +287,25 @@ SECTOR_CONFIG = {
         "uitsluiten": []
     }
 }
+import requests
+
+def zoek_bedrijven_google(query, max_results=10):
+    url = "https://www.googleapis.com/customsearch/v1"
+    params = {
+        "key": st.secrets["GOOGLE_API_KEY"],
+        "cx": st.secrets["GOOGLE_CX"],
+        "q": query,
+        "num": max_results
+    }
+    r = requests.get(url, params=params, timeout=10)
+    r.raise_for_status()
+    data = r.json()
+
+    resultaten = []
+    for item in data.get("items", []):
+        resultaten.append({
+            "naam": item.get("title"),
+            "link": item.get("link"),
+            "snippet": item.get("snippet", "")
+        })
+    return resultaten
