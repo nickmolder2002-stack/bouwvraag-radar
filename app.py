@@ -68,6 +68,30 @@ def score_label(score):
         return "🟠 Middel"
     return "🟢 Laag"
 
+# =========================================
+# BESLISSER & BELADVIES LOGICA
+# =========================================
+def bepaal_beslisser(type_bedrijf):
+    mapping = {
+        "Hoofdaannemer": ("Hoofd Uitvoering", "Projectleiding"),
+        "Onderaannemer": ("Bedrijfsleider", "Directie"),
+        "Prefab beton producent": ("Productiemanager", "Operations"),
+        "Modulaire woningbouw": ("Operations manager", "Directie"),
+        "Toelevering / Werkplaats": ("Werkplaatsmanager", "Productie"),
+        "Afbouw": ("Projectcoördinator", "Uitvoering")
+    }
+    return mapping.get(type_bedrijf, ("Onbekend", "Onbekend"))
+
+def genereer_beladvies(score, vacature_signalen):
+    if score >= 70:
+        return "Direct bellen: hoge projectdruk en personeelsbehoefte"
+    if vacature_signalen and vacature_signalen != "Geen":
+        return "Warm bellen: actieve vacature-signalen gevonden"
+    if score >= 40:
+        return "Verkennend gesprek plannen"
+    return "Lage prioriteit – monitoren"
+
+
 # ==============================
 # DATA LADEN
 # ==============================
