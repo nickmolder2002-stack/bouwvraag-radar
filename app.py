@@ -309,6 +309,60 @@ def zoek_bedrijven_google(query, max_results=10):
             "snippet": item.get("snippet", "")
         })
     return resultaten
+    def valideer_bedrijf(bedrijf, sector):
+    tekst = (bedrijf["naam"] + " " + bedrijf["snippet"]).lower()
+    for woord in SECTOR_CONFIG[sector]["uitsluiten"]:
+        if woord in tekst:
+            return False
+    return True
+def analyseer_bedrijven_met_ai(bedrijven, sector, regio):
+    if not bedrijven:
+        return "❌ Geen geldige bedrijven gevonden."
+
+    context = ""
+    for b in bedrijven:
+        context += f"""
+Bedrijf: {b['naam']}
+Website: {b['link']}
+Info: {b['snippet']}
+"""
+
+    prompt = f"""
+Je bent een Nederlandse markt- en recruitmentanalist.
+
+BELANGRIJK:
+- Gebruik UITSLUITEND onderstaande bedrijven
+- Verzin GEEN nieuwe bedrijven
+- Zeg expliciet als informatie ontbreekt
+
+Taak:
+- Beoordeel personeelsbehoefte
+- Geef score (0–100)
+- Benoem functies
+- Geef beladvies
+- Noem type contactpersoon (HR / Inkoop / Projectleiding)
+
+Sector: {sector}
+Regio: {regio}
+
+DATA:
+{context}
+
+Geef een TOP 10.
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "Je analyseert echte Nederlandse bedrijven."},
+            {"role": "user", "content": prompt}
+        ],
+        timeout=60
+    )
+
+    return response.choices[0].message.content
+
+
 st.divider()
 st.subheader("🌍 AI Marktverkenning – échte bedrijven")
 
