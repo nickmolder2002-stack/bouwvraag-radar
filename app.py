@@ -11,132 +11,95 @@ st.set_page_config(
 )
 
 st.title("🧠 BouwVraag Radar")
-st.caption("Sales‑tool: ontdek waar NU personeelsvraag zit in de bouw")
+st.caption("AI ontdekt waar personeelsvraag zit — vóórdat je belt")
 
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # =====================================================
-# HULPLOGICA
+# AI CORE
 # =====================================================
-
-BRANCHE_KEYWORDS = [
-    "onderaanneming",
-    "onderaannemer",
-    "prefab",
-    "prefab beton",
-    "modulaire woningbouw",
-    "timmer",
-    "beton",
-    "ruwbouw",
-    "bouw"
-]
-
-def is_branche_input(query: str) -> bool:
-    return any(k in query.lower() for k in BRANCHE_KEYWORDS)
-
 
 def ai_analyse(prompt: str) -> str:
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model="gpt-4o",
         messages=[
-            {"role": "system", "content": "Je bent een extreem scherpe sales-analist in de Nederlandse bouwsector."},
+            {
+                "role": "system",
+                "content": (
+                    "Je bent een extreem scherpe commerciële analist gespecialiseerd "
+                    "in de Nederlandse bouwsector. Je redeneert realistisch, "
+                    "werkt met aannames en denkt altijd vanuit sales-kansen."
+                )
+            },
             {"role": "user", "content": prompt}
         ],
-        temperature=0.1
+        temperature=0.15
     )
     return response.choices[0].message.content
 
 
 # =====================================================
-# UI — ENIGE INPUT
+# UI
 # =====================================================
 
 zoekterm = st.text_input(
-    "🔍 Bedrijfsnaam of branche",
-    placeholder="Bijv. 'Bouwbedrijf Jansen BV' of 'onderaanneming'"
+    "🔍 Bedrijfsnaam",
+    placeholder="Bijv. 'Bouwbedrijf Jansen BV'"
 )
 
 if st.button("Analyseer") and zoekterm.strip():
 
-    with st.spinner("AI analyseert personeelsvraag..."):
+    with st.spinner("AI onderzoekt het bedrijf en personeelsbehoefte..."):
 
-        # =================================================
-        # BRANCHE MODE
-        # =================================================
-        if is_branche_input(zoekterm):
-            prompt = f"""
-Je krijgt deze branche-input: "{zoekterm}"
+        prompt = f"""
+Onderzoek dit Nederlandse bedrijf: "{zoekterm}"
 
-Doel:
-Selecteer 3 REALISTISCHE (fictieve) Nederlandse bouwbedrijven
-die waarschijnlijk personeelsvraag hebben.
+DOEL:
+Bepaal of dit bedrijf waarschijnlijk NU personeel nodig heeft.
 
-Voor elk bedrijf:
-- Bepaal type bedrijf
-- Analyseer personeelsdruk
-- Geef een score (0-100) op basis van:
-  * type bedrijf
-  * marktcontext
-  * waarschijnlijke vacatures
-  * urgentie
-  * trek punten af bij twijfel
+STAPPEN:
+1. Analyseer wat voor bedrijf dit is
+2. Wat doen ze concreet (activiteiten / projecten)
+3. Welke functies zoeken ze waarschijnlijk
+4. Hoe dringend is die behoefte
 
-Geef OUTPUT EXACT in dit format:
+DENK ALS EEN SALES DIRECTEUR.
 
-BEDRIJF: <naam>
-TYPE: <type>
-SCORE: <0-100>
-LABEL: 🔴 HEET / 🟠 WARM / 🟢 KOUD
-REDENEN:
-- <reden 1>
-- <reden 2>
-ADVIES: <Vandaag bellen / Deze week / Niet bellen>
-
-Herhaal dit 3 keer.
-"""
-            resultaat = ai_analyse(prompt)
-
-            st.subheader("📊 Beste sales‑kansen")
-            st.markdown(resultaat)
-
-        # =================================================
-        # BEDRIJF MODE
-        # =================================================
-        else:
-            prompt = f"""
-Analyseer dit bedrijf: "{zoekterm}"
-
-Doe het volgende:
-1. Bepaal wat voor bouwbedrijf dit waarschijnlijk is
-2. Beoordeel personeelsdruk
-3. Geef een SCORE (0-100) op basis van:
-   - type bedrijf
-   - marktcontext
-   - aannemelijke personeelsvraag
-   - urgentie
-4. Classificeer:
-   80-100 = 🔴 HEET
-   60-79  = 🟠 WARM
-   <60    = 🟢 KOUD
-
-Geef OUTPUT EXACT in dit format:
+GEEF OUTPUT EXACT IN DIT FORMAT:
 
 BEDRIJF:
-TYPE:
-SCORE:
+TYPE BEDRIJF:
+WAT DOEN ZE:
+- <activiteit 1>
+- <activiteit 2>
+
+WAARSCHIJNLIJKE PERSONEELSBEHOEFTE:
+- <functie + korte uitleg>
+- <functie + korte uitleg>
+
+PERSONEELSDRUK SCORE: <0-100>
+
 LABEL:
+🔴 HEET (nu bellen)
+🟠 WARM (deze week)
+🟢 KOUD (monitoren)
+
 REDENEN:
 - <reden 1>
 - <reden 2>
-ADVIES:
-"""
-            resultaat = ai_analyse(prompt)
 
-            st.subheader("📋 Bedrijfsanalyse")
-            st.markdown(resultaat)
+SALESADVIES:
+<concreet actieadvies voor vandaag>
+"""
+
+        resultaat = ai_analyse(prompt)
+
+        st.subheader("📊 Bedrijfsanalyse & Salesadvies")
+        st.markdown(resultaat)
 
 # =====================================================
 # FOOTER
 # =====================================================
 st.markdown("---")
-st.caption("Geen CRM. Geen ruis. Alleen bellen waar het loont.")
+st.caption("AI denkt vooruit. Jij belt alleen waar het loont.")
+
