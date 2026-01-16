@@ -74,11 +74,14 @@ def score_label(score):
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
 else:
-    df = pd.DataFrame(columns=[
-        "Bedrijf","Type","Werksoort","Projecten","Fase",
-        "Vacature_signalen","Score","Prioriteit",
-        "Status","Laatste contact","Notitie"
-    ])
+  df = pd.DataFrame(columns=[
+    "Bedrijf","Type","Werksoort","Projecten","Vacatures",
+    "Fase","Vacature_signalen",
+    "Score","Prioriteit","Status",
+    "Beslisser","Beladvies",
+    "Laatste contact","Volgende actie","Notitie"
+])
+
 
 # ==============================
 # UI
