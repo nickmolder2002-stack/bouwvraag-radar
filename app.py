@@ -1,20 +1,24 @@
 import streamlit as st
 import pandas as pd
 import os
+import requests
 from datetime import date
 from openai import OpenAI
-
-# 🔍 SUPERSNEL TESTEN – TIJDELIJK
-st.write("OpenAI key gevonden:", "OPENAI_API_KEY" in st.secrets)
-st.write("Google key gevonden:", "GOOGLE_API_KEY" in st.secrets)
-st.write("Google CX gevonden:", "GOOGLE_CX" in st.secrets)
 
 # =====================================================
 # CONFIG
 # =====================================================
 st.set_page_config(page_title="🧠 BouwVraag Radar", layout="wide")
 DATA_FILE = "data.csv"
+
 client = OpenAI()
+
+# =====================================================
+# SUPERSNELLE CHECK (MAG JE LATER VERWIJDEREN)
+# =====================================================
+st.write("✅ OpenAI key:", "OPENAI_API_KEY" in st.secrets)
+st.write("✅ Google key:", "GOOGLE_API_KEY" in st.secrets)
+st.write("✅ Google CX:", "GOOGLE_CX" in st.secrets)
 
 # =====================================================
 # SCORE LOGICA
@@ -22,15 +26,13 @@ client = OpenAI()
 def bereken_score(projecten, vacatures, werksoort, fase):
     score = projecten * 5
     if vacatures == "Ja":
+        score += 25
+    if werksoort in ["Prefab", "Beton / Ruwbouw"]:
         score += 20
-    if werksoort in ["Beton / Ruwbouw", "Prefab"]:
-        score += 15
     if fase == "Piek":
-        score += 15
+        score += 20
     elif fase == "Start":
         score += 10
-    else:
-        score += 5
     return min(score, 100)
 
 def score_label(score):
@@ -38,11 +40,10 @@ def score_label(score):
         return "🔴 Hoog"
     elif score >= 40:
         return "🟠 Middel"
-    else:
-        return "🟢 Laag"
+    return "🟢 Laag"
 
 # =====================================================
-# DATA LADEN
+# DATA
 # =====================================================
 if os.path.exists(DATA_FILE):
     df = pd.read_csv(DATA_FILE)
@@ -54,103 +55,58 @@ else:
     ])
 
 # =====================================================
-# TITEL
+# UI
 # =====================================================
 st.title("🧠 BouwVraag Radar")
 
 # =====================================================
-# SIDEBAR – BEDRIJF TOEVOEGEN
+# SIDEBAR INPUT
 # =====================================================
 st.sidebar.header("➕ Nieuw bedrijf")
 
 bedrijf = st.sidebar.text_input("Bedrijfsnaam")
 type_bedrijf = st.sidebar.selectbox(
-    "Type bedrijf",
+    "Type",
     [
-        "Hoofdaannemer",
-        "Onderaannemer",
         "Prefab beton producent",
         "Modulaire woningbouw",
+        "Hoofdaannemer",
+        "Onderaannemer",
         "Toelevering / Werkplaats",
         "Afbouw"
     ]
 )
-werksoort = st.sidebar.selectbox("Werksoort", ["Timmerman","Beton / Ruwbouw","Prefab"])
-projecten = st.sidebar.slider("Aantal projecten", 0, 10, 3)
-vacatures = st.sidebar.selectbox("Vacatures actief?", ["Nee","Ja"])
-fase = st.sidebar.selectbox("Projectfase", ["Start","Piek","Afronding"])
+
+werksoort = st.sidebar.selectbox("Werksoort", ["Prefab","Beton / Ruwbouw","Timmerman"])
+projecten = st.sidebar.slider("Projecten", 0, 10, 3)
+vacatures = st.sidebar.selectbox("Vacatures", ["Nee","Ja"])
+fase = st.sidebar.selectbox("Fase", ["Start","Piek","Afronding"])
 status = st.sidebar.selectbox("Status", ["Vandaag bellen","Deze week","Later","Klaar"])
 laatst_contact = st.sidebar.date_input("Laatste contact", value=date.today())
 volgende_actie = st.sidebar.text_input("Volgende actie")
 notitie = st.sidebar.text_area("Notitie")
 
 if st.sidebar.button("Opslaan"):
-    if bedrijf.strip() == "":
-        st.sidebar.error("❌ Bedrijfsnaam is verplicht")
+    if not bedrijf.strip():
+        st.sidebar.error("Bedrijfsnaam verplicht")
     else:
         score = bereken_score(projecten, vacatures, werksoort, fase)
-        nieuw = {
-            "Bedrijf": bedrijf,
-            "Type": type_bedrijf,
-            "Werksoort": werksoort,
-            "Projecten": projecten,
-            "Vacatures": vacatures,
-            "Fase": fase,
-            "Score": score,
-            "Prioriteit": score_label(score),
-            "Status": status,
-            "Laatste contact": laatst_contact,
-            "Volgende actie": volgende_actie,
-            "Notitie": notitie
-        }
-        df = pd.concat([df, pd.DataFrame([nieuw])], ignore_index=True)
+        df.loc[len(df)] = [
+            bedrijf, type_bedrijf, werksoort, projecten, vacatures,
+            fase, score, score_label(score), status,
+            laatst_contact, volgende_actie, notitie
+        ]
         df.to_csv(DATA_FILE, index=False)
-        st.sidebar.success(f"✅ Opgeslagen (score {score}%)")
+        st.sidebar.success("Opgeslagen")
 
 # =====================================================
 # VANDAAG BELLEN
 # =====================================================
 st.subheader("📞 Vandaag bellen")
-if not df.empty:
-    bellen = df[df["Status"] == "Vandaag bellen"].sort_values("Score", ascending=False)
-    st.dataframe(bellen, use_container_width=True)
-else:
-    st.info("Nog geen bedrijven ingevoerd")
+st.dataframe(df[df["Status"]=="Vandaag bellen"].sort_values("Score", ascending=False))
 
 # =====================================================
-# AI ANALYSE OP EIGEN DATA
-# =====================================================
-def ai_analyse_eigen_data(df):
-    if df.empty:
-        return "⚠️ Nog geen data."
-    csv = df.head(50).to_csv(index=False)
-    prompt = f"""
-Je bent een Nederlandse recruitment- en salesanalist in de bouw.
-Analyseer deze data en geef:
-1. Wie vandaag bellen
-2. Welke werksoorten hoogste vraag
-3. Kort actieadvies
-DATA:
-{csv}
-"""
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Analyseer bouwbedrijven."},
-            {"role": "user", "content": prompt}
-        ],
-        timeout=30
-    )
-    return response.choices[0].message.content
-
-st.divider()
-st.subheader("🤖 AI-analyse (eigen data)")
-if st.button("Analyseer"):
-    with st.spinner("AI denkt..."):
-        st.markdown(ai_analyse_eigen_data(df))
-
-# =====================================================
-# SECTOR DEFINITIES (HARD)
+# SECTOR DEFINITIES (KEIHARD)
 # =====================================================
 SECTOR_CONFIG = {
     "Prefab beton producent": {
@@ -159,136 +115,96 @@ SECTOR_CONFIG = {
             "betonelementen fabriek",
             "prefab betonelementen productie"
         ],
-        "uitsluiten": [
-            "aannemer", "bouwbedrijf", "infra", "projectontwikkeling"
-        ]
-    },
-    "Modulaire woningbouw": {
-        "zoektermen": [
-            "modulaire woningen fabriek",
-            "woningmodules productie"
-        ],
-        "uitsluiten": ["aannemer", "bouwbedrijf"]
-    },
-    "Hoofdaannemer": {
-        "zoektermen": ["hoofdaannemer bouw"],
-        "uitsluiten": []
-    },
-    "Onderaannemer": {
-        "zoektermen": ["ruwbouw specialist", "betononderaannemer"],
-        "uitsluiten": []
-    },
-    "Toelevering / Werkplaats": {
-        "zoektermen": ["beton wapening productie", "bouw toeleverancier"],
-        "uitsluiten": []
-    },
-    "Afbouw": {
-        "zoektermen": ["afbouwbedrijf", "gipswanden montage"],
-        "uitsluiten": []
+        "vereist": ["fabriek", "productie", "beton"],
+        "uitsluiten": ["aannemer", "bouwbedrijf", "infra"]
     }
 }
 
 # =====================================================
-# GOOGLE ZOEKEN
+# GOOGLE SEARCH
 # =====================================================
-def zoek_bedrijven_google(query, max_results=10):
+def google_zoek(query):
     url = "https://www.googleapis.com/customsearch/v1"
     params = {
         "key": st.secrets["GOOGLE_API_KEY"],
         "cx": st.secrets["GOOGLE_CX"],
         "q": query,
-        "num": max_results
+        "num": 10
     }
     r = requests.get(url, params=params, timeout=10)
     r.raise_for_status()
-    data = r.json()
+    return r.json().get("items", [])
 
-    resultaten = []
-    for item in data.get("items", []):
-        resultaten.append({
-            "naam": item.get("title"),
-            "link": item.get("link"),
-            "snippet": item.get("snippet", "")
-        })
-    return resultaten
+def valideer_bedrijf(item, sector):
+    text = (item["title"] + " " + item.get("snippet","")).lower()
 
-def valideer_bedrijf(bedrijf, sector):
-    tekst = (bedrijf["naam"] + " " + bedrijf["snippet"]).lower()
     for woord in SECTOR_CONFIG[sector]["uitsluiten"]:
-        if woord in tekst:
+        if woord in text:
             return False
-    return True
+
+    positief = any(w in text for w in SECTOR_CONFIG[sector]["vereist"])
+    return positief and (".nl" in item["link"] or ".com" in item["link"])
 
 # =====================================================
-# AI ANALYSE OP ECHTE BEDRIJVEN
+# MARKTVERKENNING (ALLEEN ECHT)
 # =====================================================
-def analyseer_bedrijven_met_ai(bedrijven, sector, regio):
-    context = ""
-    for b in bedrijven:
-        context += f"""
+st.divider()
+st.subheader("🌍 Marktverkenning – 100% echte bedrijven")
+
+sector = st.selectbox("Sector", list(SECTOR_CONFIG.keys()))
+regio = st.selectbox("Regio", ["Nederland","Randstad","Noord-Brabant"])
+
+if st.button("Zoek bedrijven"):
+    met_data = []
+
+    for term in SECTOR_CONFIG[sector]["zoektermen"]:
+        results = google_zoek(f"{term} {regio}")
+        for r in results:
+            if valideer_bedrijf(r, sector):
+                met_data.append({
+                    "naam": r["title"],
+                    "site": r["link"],
+                    "info": r.get("snippet","")
+                })
+
+    uniek = {b["site"]: b for b in met_data}.values()
+
+    if not uniek:
+        st.error("❌ Geen echte bedrijven gevonden")
+    else:
+        context = ""
+        for b in uniek:
+            context += f"""
 Bedrijf: {b['naam']}
-Website: {b['link']}
-Info: {b['snippet']}
+Website: {b['site']}
+Info: {b['info']}
 """
-    prompt = f"""
-Je bent een zeer kritische Nederlandse recruitmentanalist.
-Gebruik UITSLUITEND deze bedrijven.
-Verzin NIETS.
-Geef per bedrijf:
-- Personeelsbehoefte score (0-100)
+
+        prompt = f"""
+Gebruik UITSLUITEND onderstaande bedrijven.
+Verzin GEEN namen.
+Analyseer personeelsbehoefte en geef:
+- Score 0–100
 - Urgentie
 - Functies
-- Wie beslist over inleen (functie, geen naam)
+- Beslisser (functie)
 - Concreet beladvies
-Sector: {sector}
-Regio: {regio}
+
 DATA:
 {context}
 """
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": "Analyseer echte bedrijven."},
-            {"role": "user", "content": prompt}
-        ],
-        timeout=60
-    )
-    return response.choices[0].message.content
 
-# =====================================================
-# MARKTVERKENNING – ECHTE BEDRIJVEN
-# =====================================================
-st.divider()
-st.subheader("🌍 AI Marktverkenning – échte bedrijven")
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role":"user","content":prompt}],
+            timeout=60
+        )
 
-sector_keuze = st.selectbox("Sector", list(SECTOR_CONFIG.keys()))
-regio_keuze = st.selectbox("Regio", [
-    "Nederland","Randstad","Noord-Brabant","Gelderland","Zuid-Holland"
-])
-
-if st.button("🚀 Zoek & analyseer"):
-    with st.spinner("Internet wordt onderzocht..."):
-        alle = []
-        for term in SECTOR_CONFIG[sector_keuze]["zoektermen"]:
-            gevonden = zoek_bedrijven_google(f"{term} {regio_keuze}")
-            for b in gevonden:
-                if valideer_bedrijf(b, sector_keuze):
-                    alle.append(b)
-
-        uniek = {b["link"]: b for b in alle}.values()
-
-        if not uniek:
-            st.error("❌ Geen valide bedrijven gevonden.")
-        else:
-            st.markdown(analyseer_bedrijven_met_ai(list(uniek), sector_keuze, regio_keuze))
+        st.markdown(response.choices[0].message.content)
 
 # =====================================================
 # OVERZICHT
 # =====================================================
 st.divider()
-st.subheader("📊 Totaal overzicht")
-if not df.empty:
-    st.dataframe(df, use_container_width=True)
-else:
-    st.info("Nog geen data")
-
+st.subheader("📊 Overzicht")
+st.dataframe(df, use_container_width=True)
