@@ -17,18 +17,18 @@ st.caption("AI ontdekt personeelsvraag vóórdat jij belt")
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 # =====================================================
-# RATE‑LIMIT BESCHERMING
+# RATE LIMIT (B‑MODUS)
 # =====================================================
 if "last_call" not in st.session_state:
     st.session_state.last_call = 0
 
-MIN_INTERVAL = 60  # seconden (belangrijk voor B‑modus)
+MIN_INTERVAL = 60  # seconden
 
 # =====================================================
-# AI FUNCTIE (VEILIG)
+# AI FUNCTIE
 # =====================================================
 def ai_analyse(prompt: str) -> str:
-    for poging in range(3):
+    for _ in range(3):
         try:
             response = client.chat.completions.create(
                 model="gpt-4o-mini",
@@ -36,10 +36,9 @@ def ai_analyse(prompt: str) -> str:
                     {
                         "role": "system",
                         "content": (
-                            "Je bent een zeer scherpe commerciële analist "
-                            "gespecialiseerd in de Nederlandse bouwsector. "
-                            "Je redeneert realistisch, maakt aannames en "
-                            "denkt altijd vanuit sales-kansen."
+                            "Je bent een extreem scherpe commerciële analist "
+                            "in de Nederlandse bouw- en maakindustrie. "
+                            "Je redeneert realistisch en denkt altijd vanuit sales-kansen."
                         )
                     },
                     {"role": "user", "content": prompt}
@@ -47,7 +46,6 @@ def ai_analyse(prompt: str) -> str:
                 temperature=0.15
             )
             return response.choices[0].message.content
-
         except RateLimitError:
             time.sleep(5)
 
@@ -56,12 +54,17 @@ def ai_analyse(prompt: str) -> str:
 # =====================================================
 # UI
 # =====================================================
-zoekterm = st.text_input(
+bedrijf = st.text_input(
     "🔍 Bedrijfsnaam",
-    placeholder="Bijv. 'Bouwbedrijf Jansen BV'"
+    placeholder="Bijv. 'Rollecate'"
 )
 
-if st.button("Analyseer") and zoekterm.strip():
+context = st.text_input(
+    "🏗️ Wat doet dit bedrijf? (optioneel maar sterk aanbevolen)",
+    placeholder="Bijv. producent van aluminium kozijnen en gevelsystemen"
+)
+
+if st.button("Analyseer") and bedrijf.strip():
 
     nu = time.time()
     if nu - st.session_state.last_call < MIN_INTERVAL:
@@ -69,18 +72,26 @@ if st.button("Analyseer") and zoekterm.strip():
     else:
         st.session_state.last_call = nu
 
-        with st.spinner("AI onderzoekt het bedrijf en personeelsbehoefte..."):
+        with st.spinner("AI onderzoekt bedrijf en personeelsbehoefte..."):
 
             prompt = f"""
-Onderzoek dit Nederlandse bedrijf: "{zoekterm}"
+Analyseer dit Nederlandse bedrijf:
 
-DOE HET VOLGENDE:
-1. Bepaal wat voor type bedrijf dit is
-2. Beschrijf kort wat ze doen
-3. Bepaal welk personeel ze waarschijnlijk zoeken
-4. Schat hoe dringend dit is
+BEDRIJFSNAAM:
+{bedrijf}
 
-DENK ALS EEN ERVAREN SALES DIRECTEUR.
+EXTRA CONTEXT (indien gegeven door gebruiker):
+{context if context.strip() else "Geen extra context opgegeven"}
+
+DOEL:
+Bepaal zo realistisch mogelijk:
+- wat dit bedrijf doet
+- welk type bedrijf het is
+- welk personeel ze waarschijnlijk zoeken
+- hoe dringend dit is voor sales
+
+Gebruik de context expliciet als die er is.
+Maak aannames alleen als dat logisch is en benoem ze.
 
 GEEF OUTPUT EXACT IN DIT FORMAT:
 
@@ -106,7 +117,7 @@ REDENEN:
 - <reden 2>
 
 SALESADVIES:
-<concreet actieadvies voor vandaag>
+<concreet en direct actieadvies>
 """
 
             resultaat = ai_analyse(prompt)
@@ -118,4 +129,5 @@ SALESADVIES:
 # FOOTER
 # =====================================================
 st.markdown("---")
-st.caption("Rustig testen. Slim beslissen. Bellen waar het loont.")
+st.caption("Geef 1 zin context → krijg 10× betere salesbeslissing.")
+
